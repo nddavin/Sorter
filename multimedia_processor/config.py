@@ -1,22 +1,42 @@
-# multimedia_processor/config.py
+"""Configuration module for multimedia processor."""
 from enum import Enum
+from pathlib import Path
+from typing import Optional
+from dataclasses import dataclass
+
 
 class MediaType(Enum):
-    AUDIO = 1
-    VIDEO = 2
-    DOCUMENT = 3
-    # Add more media types as needed
+    """Supported media types."""
+    AUDIO = "audio"
+    VIDEO = "video"
+    DOCUMENT = "document"
+    IMAGE = "image"
+
 
 class ProcessingLevel(Enum):
-    BASIC = 1
-    ADVANCED = 2  # Add ADVANCED level
+    """Processing complexity levels."""
+    BASIC = "basic"
+    ADVANCED = "advanced"
 
+
+@dataclass
 class MediaProcessingConfig:
-    def __init__(self, media_type: MediaType, processing_level: ProcessingLevel, file_path: str):
-        self.media_type = media_type
-        self.processing_level = processing_level
-        self.file_path = file_path
-
+    """Configuration for media processing operations."""
+    media_type: MediaType
+    processing_level: ProcessingLevel
+    file_path: str
+    output_dir: Optional[str] = None
+    quality: int = 75
+    
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        if not Path(self.file_path).exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        if self.quality < 1 or self.quality > 100:
+            raise ValueError("Quality must be between 1 and 100")
+    
     @property
-    def level(self):
+    def level(self) -> ProcessingLevel:
+        """Backward compatibility property."""
         return self.processing_level
