@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: sorter_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/sorted:/app/sorted
+
+  frontend:
+    build: ./frontend
+    container_name: sorter_frontend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - backend
