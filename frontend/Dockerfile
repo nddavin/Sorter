@@ -4,14 +4,20 @@ FROM python:3.11-slim
 # Set work directory
 WORKDIR /app
 
-# Copy frontend code
-COPY . /app
-
 # Install dependencies
-RUN pip install --no-cache-dir flask requests
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose Flask port
-EXPOSE 5000
+# Copy application files
+COPY frontend.py .
+COPY templates ./templates
 
-# Start Flask app
-CMD ["python", "frontend.py"]
+# Create upload folder inside container
+ENV UPLOAD_FOLDER=/tmp/uploads
+RUN mkdir -p ${UPLOAD_FOLDER}
+
+# Set environment variables for default host and port
+ENV DEBUG=false
+ENV HOST=0.0.0.0
+ENV PORT=5000
+ENV B

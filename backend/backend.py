@@ -1,51 +1,67 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
 import os
 import shutil
+from uuid import uuid4
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 app = FastAPI()
 
-UPLOAD_FOLDER = "uploads"
-SORTED_FOLDER = "sorted"
+# Directories
+UPLOAD_FOLDER = Path(os.environ.get("UPLOAD_FOLDER", "uploads"))
+SORTED_FOLDER = Path(os.environ.get("SORTED_FOLDER", "sorted"))
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+SORTED_FOLDER.mkdir(parents=True, exist_ok=True)
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(SORTED_FOLDER, exist_ok=True)
+ALLOWED_EXTENSIONS = {".txt"}
 
-def sort_file(input_path: str, output_path: str):
-    """Reads a text file, sorts lines, writes to output_path."""
-    try:
-        with open(input_path, "r") as f:
-            lines = f.readlines()
-        lines.sort()
-        with open(output_path, "w") as f:
-            f.writelines(lines)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Sorting failed: {e}")
+
+def is_allowed_file(filename: str) -> bool:
+    return any(filename.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)
+
+
+def secure_unique_filename(filename: str) -> str:
+    # Strip directory components and append unique suffix
+    base = Path(filename).stem
+    ext = Path(filename).suffix
+    return f"{base}_{uuid4().hex}{ext}"
+
 
 @app.post("/sort")
-async def sort_upload(file: UploadFile = File(...)):
-    if not file.filename.endswith(".txt"):
-        raise HTTPException(status_code=400, detail="Only .txt files are supported")
+async def sort_file(file: UploadFile = File(...)):
+    if not is_allowed_file(file.filename):
+        raise HTTPException(status_code=400, detail="Invalid file type")
 
-    # Save uploaded file
-    upload_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    with open(upload_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    safe_filename = secure_unique_filename(file.filename)
+    upload_path = UPLOAD_FOLDER / safe_filename
 
-    # Sort file
-    sorted_filename = f"sorted_{file.filename}"
-    sorted_path = os.path.join(SORTED_FOLDER, sorted_filename)
-    sort_file(upload_path, sorted_path)
+    # Save uploaded file safely
+    try:
+        with upload_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    finally:
+        await file.close()
+
+    # Sort file contents
+    sorted_filename = f"sorted_{safe_filename}"
+    sorted_path = SORTED_FOLDER / sorted_filename
+
+    try:
+        with upload_path.open("r") as f:
+            lines = f.readlines()
+        lines.sort()
+        with sorted_path.open("w") as f:
+            f.writelines(lines)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to sort file")
 
     return {"sorted_file": sorted_filename}
 
+
 @app.get("/download/{filename}")
 def download_file(filename: str):
-    sorted_path = os.path.join(SORTED_FOLDER, filename)
-    if not os.path.exists(sorted_path):
+    # Resolve and validate path to prevent traversal
+    sorted_path = (SORTED_FOLDER / filename).resolve()
+    if not sorted_path.exists() or SORTED_FOLDER.resolve() not in sorted_path.parents:
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(sorted_path, media_type="text/plain", filename=filename)
-
-@app.get("/")
-def root():
-    return {"message": "Backend is running"}
+    return FileResponse(sorted_path)

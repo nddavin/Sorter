@@ -26,7 +26,10 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
     """
 
     # Sanitize filename
-    filename: str = os.path.basename(file.filename)
+    import re, uuid
+    raw = os.path.basename(file.filename or "")
+    # allow alphanumeric, dot, dash, underscore; replace anything else with '_'
+    filename: str = re.sub(r"[^A-Za-z0-9._-]", "_", raw).strip("._") or f"upload-{uuid.uuid4().hex}"
     if not filename:
         raise HTTPException(status_code=400, detail="Invalid filename.")
 
@@ -34,8 +37,17 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     # Build safe path
+    # generate a unique upload path to avoid overwriting existing files
+    base, ext = os.path.splitext(filename)
     upload_path: str = os.path.join(UPLOAD_DIR, filename)
-
+    counter = 1
+        CHUNK_SIZE = 1024 * 1024  # 1 MiB
+        with open(upload_path, "wb") as f:
+            while True:
+                chunk = await file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                f.write(chunk)
     try:
         # Save file
         with open(upload_path, "wb") as f:

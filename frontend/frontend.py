@@ -1,66 +1,70 @@
-from flask import Flask, request, render_template_string, redirect, url_for
-import requests
 import os
+import tempfile
+import requests
+from flask import Flask, request, render_template, jsonify
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# Backend service URL in Docker Compose network
-BACKEND_URL = "http://backend:8000"
-
-UPLOAD_FOLDER = "uploads"
-SORTED_FOLDER = "sorted"
-
+# Environment-configurable settings
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "/tmp/uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(SORTED_FOLDER, exist_ok=True)
+DEBUG = os.getenv("DEBUG", "false").lower() in ["1", "true", "yes"]
+HOST = os.getenv("HOST", "127.0.0.1")
+PORT = int(os.getenv("PORT", 5000))
 
-# Simple HTML template
-HTML_TEMPLATE = """
-<!doctype html>
-<html>
-<head>
-    <title>Sorter App</title>
-</head>
-<body>
-    <h1>File Sorter</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Upload & Sort">
-    </form>
-    {% if sorted_file %}
-    <h2>Sorted File Ready:</h2>
-    <a href="{{ url_for('download_file', filename=sorted_file) }}">{{ sorted_file }}</a>
-    {% endif %}
-</body>
-</html>
-"""
+# Backend URL inside Docker Compose network
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000/sort")
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    return render_template("index.html")
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    uploaded_file = request.files.get("file")
-    if uploaded_file:
-        filepath = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
-        uploaded_file.save(filepath)
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-        # Send file to backend for sorting
-        with open(filepath, "rb") as f:
-            files = {"file": (uploaded_file.filename, f)}
-            response = requests.post(f"{BACKEND_URL}/sort", files=files)
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
 
-        if response.status_code == 200:
-            sorted_filename = response.json().get("sorted_file")
-            return render_template_string(HTML_TEMPLATE, sorted_file=sorted_filename)
-        else:
-            return f"Error from backend: {response.text}", 500
+    # Secure the filename
+    filename = secure_filename(file.filename)
+    if not filename.lower().endswith(".txt"):
+        return jsonify({"error": "Only .txt files are allowed"}), 400
 
-    return "No file uploaded", 400
+    # Save file temporarily
+    temp_path = os.path.join(UPLOAD_FOLDER, filename)
+    try:
+        file.save(temp_path)
 
-@app.route("/download/<filename>")
-def download_file(filename):
-    return redirect(f"{BACKEND_URL}/download/{filename}")
+        # POST to backend
+        with open(temp_path, "rb") as f:
+            try:
+                response = requests.post(
+                    BACKEND_URL,
+                    files={"file": f},
+                    timeout=30
+                )
+                response.raise_for_status()
+                data = response.json()
+                if "sorted_file" not in data or not data["sorted_file"]:
+                    return jsonify({"error": "Backend did not return sorted file"}), 502
+
+                return jsonify(data)
+
+            except requests.Timeout:
+                return jsonify({"error": "Backend request timed out"}), 504
+            except requests.RequestException as e:
+                return jsonify({"error": f"Backend request failed: {e}"}), 502
+            except ValueError:
+                return jsonify({"error": "Invalid JSON from backend"}), 502
+
+    finally:
+        # Cleanup temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=DEBUG, host=HOST, port=PORT)
