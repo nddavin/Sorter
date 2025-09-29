@@ -4,8 +4,9 @@ Runs the FastAPI application.
 """
 
 from fastapi import FastAPI
-from factory import Base, engine
-from api import router
+-from factory import Base, engine
+from .factory import Base, engine
+from .api import router
 
 # Create tables if not exist
 Base.metadata.create_all(bind=engine)

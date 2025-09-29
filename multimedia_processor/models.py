@@ -4,7 +4,7 @@ SQLAlchemy models for processed files.
 """
 
 from sqlalchemy import Column, Integer, String, Text
-from factory import Base
+from .factory import Base
 
 
 class ProcessedFile(Base):

@@ -21,6 +21,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install runtime system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libpq5 \
+  && rm -rf /var/lib/apt/lists/*
+
 # Copy wheels from builder
 COPY --from=builder /wheels /wheels
 RUN pip install --no-cache /wheels/*
@@ -34,7 +40,6 @@ ENV HOST=0.0.0.0
 
 # Create uploads folder inside container
 RUN mkdir -p /app/uploads
-
 # Expose port for FastAPI
 EXPOSE 8000
 

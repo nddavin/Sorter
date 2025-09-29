@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from main import app
-from factory import Base, get_db
-from config import settings
-from models import ProcessedFile
+from multimedia_processor.main import app
+from multimedia_processor.factory import Base, get_db
+from multimedia_processor.config import settings
+from multimedia_processor.models import ProcessedFile
 
 
 # --- Setup a Test Database ---
@@ -60,7 +60,15 @@ def test_process_file_pdf(client):
 
 def test_process_file_audio(client):
     # Minimal WAV header (won't actually transcribe but should be processed)
-    fake_audio = io.BytesIO(b"RIFF....WAVEfmt ")
+    import wave
+
+    fake_audio = io.BytesIO()
+    with wave.open(fake_audio, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(b"\x00\x00" * 160)  # ~10 ms of silence
+    fake_audio.seek(0)
     response = client.post(
         "/api/process-file/",
         files={"file": ("sample.wav", fake_audio, "audio/wav")}
