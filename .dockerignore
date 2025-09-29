@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+*.pyo
+*.db
+uploads/
+.env
+test_app.db
+coverage.xml
+.pytest_cache/
+.git

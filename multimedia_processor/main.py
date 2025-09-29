@@ -1,17 +1,14 @@
-# multimedia_processor/main.py
-from multimedia_processor.factory import MediaProcessorFactory
-from multimedia_processor.config import MediaProcessingConfig, ProcessingLevel, MediaType
+"""
+main.py
+Runs the FastAPI application.
+"""
 
-def process_media(config: MediaProcessingConfig) -> None:
-    factory = MediaProcessorFactory()
-    processor = factory.create_processor(media_type=config.media_type, processing_level=config.processing_level, file_path=config.file_path)
-    result = processor.process()
-    print(result)
+from fastapi import FastAPI
+from factory import Base, engine
+from api import router
 
-def main():
-    # Example usage of MediaProcessorFactory
-    config = MediaProcessingConfig(media_type=MediaType.AUDIO, processing_level=ProcessingLevel.ADVANCED, file_path='path/to/audio/file.wav')
-    process_media(config)
+# Create tables if not exist
+Base.metadata.create_all(bind=engine)
 
-if __name__ == "__main__":
-    main()
+app = FastAPI(title="Multimedia Processor API")
+app.include_router(router, prefix="/api", tags=["media"])

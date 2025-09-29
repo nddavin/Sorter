@@ -1,92 +1,86 @@
-# multimedia_processor/processors.py
-from multimedia_processor.config import MediaProcessingConfig, ProcessingLevel, MediaType
+"""
+processors.py
+
+Handles multimedia file processing: audio transcription, PDF text extraction,
+DOCX text extraction, MIME type detection, and video metadata retrieval.
+"""
+
+from typing import List, Dict, Union
 import ffmpeg
 import magic
-import speech_recognition
+import speech_recognition as sr
 from PyPDF2 import PdfReader
-import docx
-from typing import Dict
+from docx import Document
 
-class AudioProcessor:
-    def __init__(self, config: MediaProcessingConfig):
-        self.config = config
 
-    def process_audio(self) -> Dict[str, str]:
-        if self.config.level == ProcessingLevel.ADVANCED:
-            print("Advanced audio processing")
-        else:
-            print("Basic audio processing")
+def process_audio_file(audio_path: str) -> str:
+    recognizer: sr.Recognizer = sr.Recognizer()
+    try:
+        with sr.AudioFile(audio_path) as source:
+            audio_data: sr.AudioData = recognizer.record(source)
+            text: str = recognizer.recognize_google(audio_data)
+            print(f"[INFO] Transcription successful: {text[:50]}...")
+            return text
+    except sr.UnknownValueError:
+        print("[WARNING] Could not understand audio.")
+        return ""
+    except sr.RequestError as e:
+        print(f"[ERROR] Speech Recognition API unavailable: {e}")
+        return ""
 
-        recognizer = speech_recognition.Recognizer()
-        with speech_recognition.AudioFile(self.config.file_path) as source:
-            audio = recognizer.record(source)
-            try:
-                text = recognizer.recognize_google(audio)
-                print(text)
-                return {'hash': self.get_hash(), 'text': text}
-            except speech_recognition.UnknownValueError:
-                print("Google Speech Recognition could not understand audio")
-                return {'hash': self.get_hash(), 'text': 'UnknownValueError'}
-            except speech_recognition.RequestError as e:
-                print(f"Could not request results from Google Speech Recognition service; {e}")
-                return {'hash': self.get_hash(), 'text': str(e)}
 
-    def get_hash(self) -> str:
-        # Example hash function using magic
-        return magic.from_file(self.config.file_path)
+def extract_pdf_text(pdf_path: str) -> str:
+    reader: PdfReader = PdfReader(pdf_path)
+    pages: List = reader.pages
+    text: str = "\n".join(page.extract_text() or "" for page in pages)
+    print(f"[INFO] Extracted {len(pages)} page(s) from PDF.")
+    return text
 
-    def process(self) -> Dict[str, str]:
-        return self.process_audio()
 
-class VideoProcessor:
-    def __init__(self, config: MediaProcessingConfig):
-        self.config = config
+def extract_docx_text(docx_path: str) -> str:
+    doc: Document = Document(docx_path)
+    paragraphs: List = doc.paragraphs
+    text: str = "\n".join(para.text for para in paragraphs)
+    print(f"[INFO] Extracted {len(paragraphs)} paragraph(s) from DOCX.")
+    return text
 
-    def process_video(self) -> Dict[str, str]:
-        if self.config.level == ProcessingLevel.ADVANCED:
-            print("Advanced video processing")
-        else:
-            print("Basic video processing")
 
-        video_stream = ffmpeg.probe(self.config.file_path)
-        print(video_stream)
-        return {'hash': self.get_hash(), 'video_stream': video_stream}
+def get_file_mime_type(file_path: str) -> str:
+    mime = magic.Magic(mime=True)
+    mime_type: str = mime.from_file(file_path)
+    print(f"[INFO] Detected MIME type: {mime_type}")
+    return mime_type
 
-    def get_hash(self) -> str:
-        # Example hash function using magic
-        return magic.from_file(self.config.file_path)
 
-    def process(self) -> Dict[str, str]:
-        return self.process_video()
+def get_video_info(video_path: str) -> Dict:
+    try:
+        info: Dict = ffmpeg.probe(video_path)
+        print(f"[INFO] Video metadata retrieved for {video_path}")
+        return info
+    except ffmpeg.Error as e:
+        print(f"[ERROR] Could not retrieve video info: {e}")
+        return {}
 
-class DocumentProcessor:
-    def __init__(self, config: MediaProcessingConfig):
-        self.config = config
 
-    def process_document(self) -> Dict[str, str]:
-        if self.config.level == ProcessingLevel.ADVANCED:
-            print("Advanced document processing")
-        else:
-            print("Basic document processing")
+def process_file_auto(file_path: str) -> Dict[str, Union[str, Dict]]:
+    """
+    Automatically detects file type and processes it using the correct function.
 
-        if self.config.file_path.endswith('.pdf'):
-            pdf_reader = PdfReader(self.config.file_path)
-            pages = pdf_reader.pages
-            text = "".join([page.extract_text() for page in pages])
-            print(text)
-            return {'hash': self.get_hash(), 'text': text}
-        elif self.config.file_path.endswith('.docx'):
-            doc = docx.Document(self.config.file_path)
-            paragraphs = doc.paragraphs
-            text = "\n".join([para.text for para in paragraphs])
-            print(text)
-            return {'hash': self.get_hash(), 'text': text}
-        else:
-            raise ValueError("Unsupported file format for document processing")
+    Returns a standardized dictionary for API / DB use.
+    """
+    mime_type = get_file_mime_type(file_path)
 
-    def get_hash(self) -> str:
-        # Example hash function using magic
-        return magic.from_file(self.config.file_path)
+    if mime_type.startswith("audio"):
+        return {"type": "audio", "content": process_audio_file(file_path)}
 
-    def process(self) -> Dict[str, str]:
-        return self.process_document()
+    if mime_type.startswith("video"):
+        return {"type": "video", "content": get_video_info(file_path)}
+
+    if mime_type == "application/pdf":
+        return {"type": "pdf", "content": extract_pdf_text(file_path)}
+
+    if mime_type in ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                     "application/msword"):
+        return {"type": "docx", "content": extract_docx_text(file_path)}
+
+    return {"type": "unknown", "content": ""}
