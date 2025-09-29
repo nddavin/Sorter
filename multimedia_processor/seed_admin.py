@@ -4,8 +4,9 @@ Populates DB with sample processed files for testing after migration.
 """
 
 import os
-from media_usage import bulk_process
-from config import settings
+-from media_usage import bulk_process
+from .media_usage import bulk_process
+from .config import settings
 
 # Copy some sample files to uploads folder
 # (You can manually drop test files: sample.pdf, sample.mp3, sample.docx, sample.mp4)

@@ -6,10 +6,10 @@ Defines routes for file upload and retrieval.
 import shutil
 from fastapi import APIRouter, UploadFile, Depends, HTTPException
 from sqlalchemy.orm import Session
-from processors import process_file_auto
+from multimedia_processor.processors import process_file_auto
 from multimedia_processor.models import ProcessedFile
-from factory import get_db
-from config import settings
+from multimedia_processor.factory import get_db
+from multimedia_processor.config import settings
 
 router = APIRouter()
 

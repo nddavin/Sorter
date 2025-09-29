@@ -79,8 +79,11 @@ def process_file_auto(file_path: str) -> Dict[str, Union[str, Dict]]:
     if mime_type == "application/pdf":
         return {"type": "pdf", "content": extract_pdf_text(file_path)}
 
-    if mime_type in ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                     "application/msword"):
+    if mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         return {"type": "docx", "content": extract_docx_text(file_path)}
+
+    if mime_type == "application/msword":
+        print("[WARNING] Legacy .doc files are not supported.")
+        return {"type": "unknown", "content": ""}
 
     return {"type": "unknown", "content": ""}

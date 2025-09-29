@@ -4,10 +4,10 @@ CLI tool to process a folder of media files and store results in the DB.
 """
 
 import os
-from processors import process_file_auto
-from factory import SessionLocal
-from models import ProcessedFile
-from config import settings
+from multimedia_processor.processors import process_file_auto
+from multimedia_processor.factory import SessionLocal
+from multimedia_processor.models import ProcessedFile
+from multimedia_processor.config import settings
 
 
 def bulk_process(folder_path: str = settings.UPLOAD_DIR):
