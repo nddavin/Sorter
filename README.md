@@ -1,181 +1,75 @@
-# Sorter: Multimedia Processor API
+# Sorter
 
-A production-ready, containerized, and fully tested multimedia processing API. This project handles file uploads (PDF, DOCX, audio, video), extracts/analyses their content, stores results in a database, and exposes REST endpoints for retrieval.
+## Overview
 
----
+Sorter is a Dockerized application designed to efficiently organize and manage datasets. The project includes automated workflows via GitHub Actions for seamless deployment and testing.
 
-## 1. Overview
+## Features
 
-**Purpose:**
+1. Automated data sorting and management
+1. Dockerized environment for consistent deployment
+1. GitHub Actions workflows for CI/CD
+1. Easy-to-use CLI and API interface
+1. Modular and extensible design
 
-* Automate processing of various file types (text, audio transcription, video placeholders)
-* Provide an API to upload, process, and fetch results
-* Support bulk processing (CLI) and database persistence
-* Enable CI/CD and Docker-based deployment
+## Project Structure
 
----
+1. `backend/` - FastAPI backend API
+1. `frontend/` - Web interface for interacting with the sorter
+1. `docker/` - Docker configurations
+1. `workflows/` - GitHub Actions CI/CD pipelines
+1. `README.md` - Project documentation
 
-## 2. Project Structure
+## Installation
 
-```
-sorter/
-├── api.py             # FastAPI routes (upload, list, retrieve)
-├── config.py          # App configuration (database URL, upload path)
-├── factory.py         # DB session and app factory setup
-├── main.py            # FastAPI entry point
-├── media_usage.py     # CLI tool for bulk file processing
-├── models.py          # SQLAlchemy ORM models
-├── processors.py      # Core file processing functions
-├── seed_admin.py      # Seed script for populating DB with sample files
-├── uploads/           # Directory for uploaded files
-├── tests/             # Pytest-based automated tests
-│   └── test_api.py
-├── Dockerfile         # Production-ready container definition
-├── .dockerignore      # Excluded files from image build
-├── requirements.txt   # Dependencies
-└── .github/workflows/ci.yml  # GitHub Actions CI/CD pipeline
-```
-
----
-
-## 3. Key Components
-
-### **config.py**
-
-* Centralizes configuration (DB URL, upload folder)
-* Ensures upload directory exists
-* Reads from `.env` if present
-
-### **factory.py**
-
-* Creates SQLAlchemy engine, session, and base
-* Provides `get_db()` dependency for FastAPI
-
-### **models.py**
-
-* Defines `ProcessedFile` model with:
-
-  * `id` (PK)
-  * `file_type` (pdf, audio, video, unknown)
-  * `content` (text transcription or extracted text)
-
-### **processors.py**
-
-* `process_file_auto(path)` detects file type and dispatches:
-
-  * PDF → extract text
-  * DOCX → extract text
-  * Audio → transcribe (placeholder for speech-to-text engine)
-  * Video → placeholder (metadata extraction)
-* Returns standardized dictionary `{"type": ..., "content": ...}`
-
-### **api.py**
-
-* `POST /api/process-file/` → upload + process file + save to DB
-* `GET /api/processed-files/` → list processed files
-* `GET /api/processed-files/{id}` → fetch single processed file
-
-### **media_usage.py**
-
-* CLI utility for processing all files in `uploads/` folder
-* Saves results to DB in bulk
-
-### **seed_admin.py**
-
-* Helps populate DB with sample data after migration
-
-### **tests/test_api.py**
-
-* Uses `pytest` + `TestClient`
-* Covers upload, DB persistence, list & fetch endpoints
-* Uses temporary SQLite DB for isolation
-
-### **Dockerfile**
-
-* Multi-stage build for optimized image size
-* Installs system packages for media processing
-* Runs `uvicorn` server inside container
-
-### **GitHub Actions CI/CD**
-
-* Runs tests on every push/PR to `main`
-* Builds & pushes Docker image to Docker Hub
-* (Optional) Deploys container to production server
-
----
-
-## 4. Setup & Usage
-
-### **1. Local Development**
+### Clone the Repository
 
 ```bash
-# Clone repo
- git clone <repo-url>
- cd sorter
+git clone https://github.com/your-username/sorter.git
+cd sorter
+````
 
-# Install dependencies
- pip install -r requirements.txt
-
-# Run migrations (if using Alembic)
- alembic upgrade head
-
-# Start API
- uvicorn main:app --reload
-```
-
-Visit: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-### **2. Bulk Processing**
+### Using Docker
 
 ```bash
-python media_usage.py
+docker-compose up --build
 ```
 
-### **3. Seeding Sample Data**
+This will start the backend and frontend services.
+
+## Usage
+
+### API
+
+```python
+from sorter import SorterAPI
+
+api = SorterAPI()
+api.sort_data("input_file.csv", "output_file.csv")
+```
+
+### CLI
 
 ```bash
-python seed_admin.py
+python sorter_cli.py --input input_file.csv --output output_file.csv
 ```
 
-### **4. Run Tests**
+## GitHub Workflows
 
-```bash
-pytest -v --cov=. --cov-report=term-missing
-```
+The project includes CI/CD workflows for:
 
-### **5. Docker Build & Run**
+1. Running automated tests on every push
+2. Building and publishing Docker images
+3. Deploying to staging or production environments
 
-```bash
-docker build -t sorter:latest .
-docker run -p 8000:8000 sorter:latest
-```
+## Contributing
 
-### **6. CI/CD**
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature-name`)
+3. Commit your changes (`git commit -m 'Add feature'`)
+4. Push to the branch (`git push origin feature-name`)
+5. Open a Pull Request
 
-* Every push runs tests automatically
-* If successful, builds & pushes Docker image to Docker Hub
-* Can auto-deploy to production server
+## License
 
----
-
-## 5. Deployment Options
-
-* **Docker Hub + VPS:** Pull and run latest container on server
-* **Docker Compose:** (Optional) Run API + DB locally for dev/testing
-* **Kubernetes:** Deploy via Helm chart or manifest
-
----
-
-## 6. Future Improvements
-
-* Real speech-to-text integration (Whisper / Vosk)
-* Video metadata & frame analysis
-* Authentication & user-specific storage
-* Pagination & filtering for results endpoint
-* Web UI dashboard
-
----
-
-## 7. License
-
-MIT License — Open for modification and deployment.
+This project is licensed under the MIT License.

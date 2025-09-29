@@ -2,7 +2,7 @@ import pytest
 from io import BytesIO
 from PyPDF2 import PdfWriter
 from fastapi.testclient import TestClient
-from .main import app
+from multimedia_processor.api import app
 
 client = TestClient(app)
 
@@ -35,6 +35,10 @@ def test_get_processed_files():
     files = {"file": ("seed.pdf", pdf_file, "application/pdf")}
     upload_response = client.post("/upload/", files=files)
     assert upload_response.status_code == 200
-    
+
     # Now GET processed-files
     response = client.get("/processed-files/")
+    assert response.status_code == 200
+    records = response.json()
+    assert isinstance(records, list)
+    assert any(r.get("filename") == "seed.pdf" for r in records)

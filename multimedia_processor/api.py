@@ -1,53 +1,51 @@
+# multimedia_processor/api.py
+
 import os
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from . import settings
-from .database import SessionLocal
-from .models import ProcessedFile
+from sqlalchemy.orm import Session
+
+from .database import SessionLocal  # Your SQLAlchemy session
+from .settings import UPLOAD_DIR  # Make sure this is defined in settings.py
 
 app = FastAPI()
 
-def save_uploaded_file(file: UploadFile) -> str:
-    """Save an uploaded file safely, preventing path traversal."""
-    filename = os.path.basename(file.filename)
-    if not filename or filename in (".", ".."):
-        raise HTTPException(status_code=400, detail="Invalid file name.")
-    
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    upload_path = os.path.join(settings.UPLOAD_DIR, filename)
-    
-    with open(upload_path, "wb") as f:
-        f.write(file.file.read())
-    
-    return upload_path
-
-@app.post("/upload/")
-async def upload_file(file: UploadFile):
-    """Upload a file and save it in the database."""
-    file_path = save_uploaded_file(file)
-    
-    # Record in the database
+# Dependency to get DB session
+def get_db() -> Session:
     db = SessionLocal()
     try:
-        processed_file = ProcessedFile(filename=file.filename, path=file_path)
-        db.add(processed_file)
-        db.commit()
-        db.refresh(processed_file)
+        yield db
+    finally:
+        db.close()
+
+
+@app.post("/upload")
+async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
+    """
+    Upload a file safely to the server.
+    """
+
+    # Sanitize filename
+    filename: str = os.path.basename(file.filename)
+    if not filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    # Ensure upload directory exists
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+    # Build safe path
+    upload_path: str = os.path.join(UPLOAD_DIR, filename)
+
+    try:
+        # Save file
+        with open(upload_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
     except Exception as e:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-    
-    return {"filename": file.filename, "path": file_path}
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
-@app.get("/processed-files/")
-async def get_processed_files():
-    """Retrieve all processed files."""
-    db = SessionLocal()
-    try:
-        files = db.query(ProcessedFile).all()
-        result = [{"id": f.id, "filename": f.filename, "path": f.path} for f in files]
-        return JSONResponse(content=result)
-    finally:
-        db.close()
+    # Optional: save info to DB
+    # db.add(...)
+    # db.commit()
+
+    return JSONResponse(content={"message": "File uploaded successfully", "filename": filename})
