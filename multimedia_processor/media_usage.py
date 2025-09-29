@@ -1,28 +1,16 @@
-"""
-media_usage.py
-CLI tool to process a folder of media files and store results in the DB.
-"""
+from .database import SessionLocal
+from .models import ProcessedFile
+from .file_processor import process_file_auto
 
-import os
-from multimedia_processor.processors import process_file_auto
-from multimedia_processor.factory import SessionLocal
-from multimedia_processor.models import ProcessedFile
-from multimedia_processor.config import settings
-
-
-def bulk_process(folder_path: str = settings.UPLOAD_DIR):
+def process_files(file_paths):
     db = SessionLocal()
-    for file_name in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, file_name)
-        if not os.path.isfile(file_path):
-            continue
-        result = process_file_auto(file_path)
-        db_obj = ProcessedFile(file_type=result["type"], content=str(result["content"]))
-        db.add(db_obj)
-    db.commit()
-    db.close()
-    print("[INFO] Bulk processing complete.")
-
-
-if __name__ == "__main__":
-    bulk_process()
+    try:
+        for file_path in file_paths:
+            result = process_file_auto(file_path)
+            db.add(result)
+        db.commit()
+    except Exception as e:
+        db.rollback()  # Preserve transactional integrity
+        raise
+    finally:
+        db.close()  # Always close the session

@@ -1,46 +1,53 @@
-"""
-api.py
-Defines routes for file upload and retrieval.
-"""
+import os
+from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
+from . import settings
+from .database import SessionLocal
+from .models import ProcessedFile
 
-import shutil
-from fastapi import APIRouter, UploadFile, Depends, HTTPException
-from sqlalchemy.orm import Session
-from multimedia_processor.processors import process_file_auto
-from multimedia_processor.models import ProcessedFile
-from multimedia_processor.factory import get_db
-from multimedia_processor.config import settings
+app = FastAPI()
 
-router = APIRouter()
+def save_uploaded_file(file: UploadFile) -> str:
+    """Save an uploaded file safely, preventing path traversal."""
+    filename = os.path.basename(file.filename)
+    if not filename or filename in (".", ".."):
+        raise HTTPException(status_code=400, detail="Invalid file name.")
+    
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    upload_path = os.path.join(settings.UPLOAD_DIR, filename)
+    
+    with open(upload_path, "wb") as f:
+        f.write(file.file.read())
+    
+    return upload_path
 
+@app.post("/upload/")
+async def upload_file(file: UploadFile):
+    """Upload a file and save it in the database."""
+    file_path = save_uploaded_file(file)
+    
+    # Record in the database
+    db = SessionLocal()
+    try:
+        processed_file = ProcessedFile(filename=file.filename, path=file_path)
+        db.add(processed_file)
+        db.commit()
+        db.refresh(processed_file)
+    except Exception as e:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+    
+    return {"filename": file.filename, "path": file_path}
 
-@router.post("/process-file/")
-async def process_file(file: UploadFile, db: Session = Depends(get_db)):
-    # Save uploaded file to disk
-    file_path = f"{settings.UPLOAD_DIR}/{file.filename}"
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    result = process_file_auto(file_path)
-
-    # Save result to DB
-    db_obj = ProcessedFile(file_type=result["type"], content=str(result["content"]))
-    db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
-
-    return {"id": db_obj.id, "file_type": db_obj.file_type, "content": db_obj.content}
-
-
-@router.get("/processed-files/")
-def list_processed_files(db: Session = Depends(get_db)):
-    files = db.query(ProcessedFile).all()
-    return files
-
-
-@router.get("/processed-files/{file_id}")
-def get_processed_file(file_id: int, db: Session = Depends(get_db)):
-    obj = db.query(ProcessedFile).filter(ProcessedFile.id == file_id).first()
-    if not obj:
-        raise HTTPException(status_code=404, detail="File not found")
-    return obj
+@app.get("/processed-files/")
+async def get_processed_files():
+    """Retrieve all processed files."""
+    db = SessionLocal()
+    try:
+        files = db.query(ProcessedFile).all()
+        result = [{"id": f.id, "filename": f.filename, "path": f.path} for f in files]
+        return JSONResponse(content=result)
+    finally:
+        db.close()
