@@ -1,42 +1,21 @@
-"""Configuration module for multimedia processor."""
-from enum import Enum
-from pathlib import Path
-from typing import Optional
-from dataclasses import dataclass
+"""
+config.py
+App configuration and database setup.
+"""
+
+import os
+from pydantic import BaseSettings
 
 
-class MediaType(Enum):
-    """Supported media types."""
-    AUDIO = "audio"
-    VIDEO = "video"
-    DOCUMENT = "document"
-    IMAGE = "image"
+class Settings(BaseSettings):
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
+
+    class Config:
+        env_file = ".env"
 
 
-class ProcessingLevel(Enum):
-    """Processing complexity levels."""
-    BASIC = "basic"
-    ADVANCED = "advanced"
+settings = Settings()
 
-
-@dataclass
-class MediaProcessingConfig:
-    """Configuration for media processing operations."""
-    media_type: MediaType
-    processing_level: ProcessingLevel
-    file_path: str
-    output_dir: Optional[str] = None
-    quality: int = 75
-    
-    def __post_init__(self):
-        """Validate configuration after initialization."""
-        if not Path(self.file_path).exists():
-            raise FileNotFoundError(f"File not found: {self.file_path}")
-        
-        if self.quality < 1 or self.quality > 100:
-            raise ValueError("Quality must be between 1 and 100")
-    
-    @property
-    def level(self) -> ProcessingLevel:
-        """Backward compatibility property."""
-        return self.processing_level
+# Ensure upload folder exists
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)

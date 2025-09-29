@@ -1,15 +1,21 @@
-# multimedia_processor/factory.py
-from multimedia_processor.config import MediaProcessingConfig, ProcessingLevel, MediaType
-from multimedia_processor.processors import AudioProcessor, VideoProcessor, DocumentProcessor
+"""
+factory.py
+Application factory and database session setup.
+"""
 
-class MediaProcessorFactory:
-    def create_processor(self, media_type: MediaType, processing_level: ProcessingLevel, file_path: str):
-        config = MediaProcessingConfig(media_type=media_type, processing_level=processing_level, file_path=file_path)
-        if media_type == MediaType.AUDIO:
-            return AudioProcessor(config)
-        elif media_type == MediaType.VIDEO:
-            return VideoProcessor(config)
-        elif media_type == MediaType.DOCUMENT:
-            return DocumentProcessor(config)
-        else:
-            raise ValueError(f"Unsupported media type: {media_type}")
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from config import settings
+
+# SQLAlchemy setup
+engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

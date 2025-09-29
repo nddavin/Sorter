@@ -1,88 +1,181 @@
-# Multimedia Processor
+# Sorter: Multimedia Processor API
 
-The Multimedia Processor is a Python-based application designed to handle various types of multimedia files including audio, video, and documents. It allows for basic and advanced processing levels and can generate metadata, find duplicates, and convert files to specified qualities.
+A production-ready, containerized, and fully tested multimedia processing API. This project handles file uploads (PDF, DOCX, audio, video), extracts/analyses their content, stores results in a database, and exposes REST endpoints for retrieval.
 
-## Features
+---
 
-- **Audio Processing**: Transcribes audio files using Google Speech Recognition and provides basic or advanced processing.
-- **Video Processing**: Extracts video stream information and provides basic or advanced processing.
-- **Document Processing**: Extracts text from PDF and DOCX files and provides basic or advanced processing.
-- **Metadata Generation**: Generates metadata for processed files.
-- **Duplicate Detection**: Identifies duplicate files based on metadata.
-- **File Conversion**: Converts files to a specified quality and saves them to a target directory.
+## 1. Overview
 
-## Installation
+**Purpose:**
 
-To install the necessary dependencies, you can use the following command:
+* Automate processing of various file types (text, audio transcription, video placeholders)
+* Provide an API to upload, process, and fetch results
+* Support bulk processing (CLI) and database persistence
+* Enable CI/CD and Docker-based deployment
+
+---
+
+## 2. Project Structure
+
+```
+sorter/
+├── api.py             # FastAPI routes (upload, list, retrieve)
+├── config.py          # App configuration (database URL, upload path)
+├── factory.py         # DB session and app factory setup
+├── main.py            # FastAPI entry point
+├── media_usage.py     # CLI tool for bulk file processing
+├── models.py          # SQLAlchemy ORM models
+├── processors.py      # Core file processing functions
+├── seed_admin.py      # Seed script for populating DB with sample files
+├── uploads/           # Directory for uploaded files
+├── tests/             # Pytest-based automated tests
+│   └── test_api.py
+├── Dockerfile         # Production-ready container definition
+├── .dockerignore      # Excluded files from image build
+├── requirements.txt   # Dependencies
+└── .github/workflows/ci.yml  # GitHub Actions CI/CD pipeline
+```
+
+---
+
+## 3. Key Components
+
+### **config.py**
+
+* Centralizes configuration (DB URL, upload folder)
+* Ensures upload directory exists
+* Reads from `.env` if present
+
+### **factory.py**
+
+* Creates SQLAlchemy engine, session, and base
+* Provides `get_db()` dependency for FastAPI
+
+### **models.py**
+
+* Defines `ProcessedFile` model with:
+
+  * `id` (PK)
+  * `file_type` (pdf, audio, video, unknown)
+  * `content` (text transcription or extracted text)
+
+### **processors.py**
+
+* `process_file_auto(path)` detects file type and dispatches:
+
+  * PDF → extract text
+  * DOCX → extract text
+  * Audio → transcribe (placeholder for speech-to-text engine)
+  * Video → placeholder (metadata extraction)
+* Returns standardized dictionary `{"type": ..., "content": ...}`
+
+### **api.py**
+
+* `POST /api/process-file/` → upload + process file + save to DB
+* `GET /api/processed-files/` → list processed files
+* `GET /api/processed-files/{id}` → fetch single processed file
+
+### **media_usage.py**
+
+* CLI utility for processing all files in `uploads/` folder
+* Saves results to DB in bulk
+
+### **seed_admin.py**
+
+* Helps populate DB with sample data after migration
+
+### **tests/test_api.py**
+
+* Uses `pytest` + `TestClient`
+* Covers upload, DB persistence, list & fetch endpoints
+* Uses temporary SQLite DB for isolation
+
+### **Dockerfile**
+
+* Multi-stage build for optimized image size
+* Installs system packages for media processing
+* Runs `uvicorn` server inside container
+
+### **GitHub Actions CI/CD**
+
+* Runs tests on every push/PR to `main`
+* Builds & pushes Docker image to Docker Hub
+* (Optional) Deploys container to production server
+
+---
+
+## 4. Setup & Usage
+
+### **1. Local Development**
 
 ```bash
-pip install -r requirements.txt
+# Clone repo
+ git clone <repo-url>
+ cd sorter
 
-Usage
+# Install dependencies
+ pip install -r requirements.txt
 
-Processing a Single Media File
-from multimedia_processor.config import MediaProcessingConfig, ProcessingLevel, MediaType
-from multimedia_processor.main import process_media
+# Run migrations (if using Alembic)
+ alembic upgrade head
 
-config = MediaProcessingConfig(media_type=MediaType.AUDIO, processing_level=ProcessingLevel.ADVANCED, file_path='path/to/audio/file.wav')
-process_media(config)
+# Start API
+ uvicorn main:app --reload
+```
 
-Processing All Media Files in a Directory
-from multimedia_processor.config import MediaProcessingConfig, ProcessingLevel, MediaType
-from multimedia_processor.media_usage import process_directory_media
+Visit: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-config = MediaProcessingConfig(media_type=MediaType.AUDIO, processing_level=ProcessingLevel.ADVANCED, file_path='path/to/audio/file.wav')
-directory_path = Path("/path/to/media/directory")
-results = process_directory_media(directory_path, config)
-print("Results:", results)
+### **2. Bulk Processing**
 
-Finding Duplicates
-from multimedia_processor.media_usage import find_duplicates
+```bash
+python media_usage.py
+```
 
-duplicates = find_duplicates(results)
-print("Duplicates:", duplicates)
+### **3. Seeding Sample Data**
 
-Converting Files
-from multimedia_processor.media_usage import convert_files
+```bash
+python seed_admin.py
+```
 
-converted = convert_files(results, Path("/path/to/target/directory"), 75)
-print("Converted:", converted)
+### **4. Run Tests**
 
-Generating a Report
-from multimedia_processor.media_usage import generate_report
+```bash
+pytest -v --cov=. --cov-report=term-missing
+```
 
-report = generate_report(results)
-print("Report:", report)
+### **5. Docker Build & Run**
 
-Project Structure
-* config.py: Defines configuration classes for media types and processing levels.
-* processors.py: Contains classes for audio, video, and document processing.
-* operations.py: Similar to processors.py, contains classes for processing operations.
-* main.py: Main entry point for processing a single media file.
-* factory.py: Factory class to create the appropriate processor based on the media type and processing level.
-* api.py: Provides a basic API for processing media.
-* media_usage.py: Contains functions for processing directories, finding duplicates, converting files, and generating reports.
-* requirements.txt: Lists all required dependencies for the project.
+```bash
+docker build -t sorter:latest .
+docker run -p 8000:8000 sorter:latest
+```
 
-Dependencies
-* python-magic
-* Pillow
-* PyPDF2
-* python-docx
-* SpeechRecognition
-* moviepy
-* ffmpeg-python
-* tqdm
-* numpy
-* pandas
-* ebooklib (optional)
-* pydub (optional)
-* imageio (optional)
-* scikit-image (optional)
-* concurrent futures backport (for Python <3.8)
+### **6. CI/CD**
 
-Contributing
-Contributions are welcome! Please ensure your code adheres to the project’s coding standards and includes appropriate tests.
+* Every push runs tests automatically
+* If successful, builds & pushes Docker image to Docker Hub
+* Can auto-deploy to production server
 
-License
-This project is licensed under the MIT License. See the LICENSE file for details.
+---
+
+## 5. Deployment Options
+
+* **Docker Hub + VPS:** Pull and run latest container on server
+* **Docker Compose:** (Optional) Run API + DB locally for dev/testing
+* **Kubernetes:** Deploy via Helm chart or manifest
+
+---
+
+## 6. Future Improvements
+
+* Real speech-to-text integration (Whisper / Vosk)
+* Video metadata & frame analysis
+* Authentication & user-specific storage
+* Pagination & filtering for results endpoint
+* Web UI dashboard
+
+---
+
+## 7. License
+
+MIT License — Open for modification and deployment.
