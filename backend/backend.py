@@ -34,28 +34,36 @@ async def sort_file(file: UploadFile = File(...)):
 
     safe_filename = secure_unique_filename(file.filename)
     upload_path = UPLOAD_FOLDER / safe_filename
-
-    # Save uploaded file safely
-    try:
-        with upload_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    finally:
-        await file.close()
-
-    # Sort file contents
     sorted_filename = f"sorted_{safe_filename}"
     sorted_path = SORTED_FOLDER / sorted_filename
 
     try:
+        # Save file in chunks (1MB at a time)
+        with upload_path.open("wb") as buffer:
+            while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                buffer.write(chunk)
+
+        # Sort file contents
         with upload_path.open("r") as f:
             lines = f.readlines()
         lines.sort()
         with sorted_path.open("w") as f:
             f.writelines(lines)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to sort file")
 
-    return {"sorted_file": sorted_filename}
+        return {"sorted_file": sorted_filename}
+
+    except Exception as e:
+        # Clean up files if error occurs
+        if upload_path.exists():
+            upload_path.unlink()
+        if sorted_path.exists():
+            sorted_path.unlink()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to process file: {str(e)}"
+        )
+    finally:
+        await file.close()
 
 
 @app.get("/download/{filename}")

@@ -34,37 +34,36 @@ def upload_file():
     if not filename.lower().endswith(".txt"):
         return jsonify({"error": "Only .txt files are allowed"}), 400
 
-    # Save file temporarily
-    temp_path = os.path.join(UPLOAD_FOLDER, filename)
     try:
-        file.save(temp_path)
+        # Stream file directly to backend without temporary file
+        response = requests.post(
+            BACKEND_URL,
+            files={"file": (filename, file.stream)},
+            timeout=30
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        if "sorted_file" not in data:
+            return jsonify({"error": "Invalid response from backend"}), 502
+            
+        return jsonify(data)
 
-        # POST to backend
-        with open(temp_path, "rb") as f:
-            try:
-                response = requests.post(
-                    BACKEND_URL,
-                    files={"file": f},
-                    timeout=30
-                )
-                response.raise_for_status()
-                data = response.json()
-                if "sorted_file" not in data or not data["sorted_file"]:
-                    return jsonify({"error": "Backend did not return sorted file"}), 502
-
-                return jsonify(data)
-
-            except requests.Timeout:
-                return jsonify({"error": "Backend request timed out"}), 504
-            except requests.RequestException as e:
-                return jsonify({"error": f"Backend request failed: {e}"}), 502
-            except ValueError:
-                return jsonify({"error": "Invalid JSON from backend"}), 502
-
-    finally:
-        # Cleanup temp file
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+    except requests.Timeout:
+        return jsonify({
+            "error": "Backend request timed out",
+            "message": "The operation took too long. Please try again."
+        }), 504
+    except requests.RequestException as e:
+        return jsonify({
+            "error": "Backend request failed",
+            "details": str(e)
+        }), 502
+    except ValueError:
+        return jsonify({
+            "error": "Invalid response from backend",
+            "message": "The backend returned malformed data"
+        }), 502
 
 if __name__ == "__main__":
     app.run(debug=DEBUG, host=HOST, port=PORT)
