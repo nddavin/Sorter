@@ -52,8 +52,14 @@ async def sort_file(file: UploadFile = File(...)):
         lines.sort()
         with sorted_path.open("w") as f:
             f.writelines(lines)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to sort file")
+        
+        # Clean up uploaded file after successful sorting
+        upload_path.unlink()
+    except Exception as e:
+        # Clean up any partial files if sorting failed
+        if sorted_path.exists():
+            sorted_path.unlink()
+        raise HTTPException(status_code=500, detail=f"Failed to sort file: {str(e)}")
 
     return {"sorted_file": sorted_filename}
 
