@@ -1,8 +1,7 @@
 import os
-import shutil
 from uuid import uuid4
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 
 app = FastAPI()
@@ -14,6 +13,11 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 SORTED_FOLDER.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".txt"}
+
+
+@app.get("/health")
+def health_check():
+    return JSONResponse(content={"status": "healthy"})
 
 
 def is_allowed_file(filename: str) -> bool:
@@ -29,7 +33,7 @@ def secure_unique_filename(filename: str) -> str:
 
 @app.post("/sort")
 async def sort_file(file: UploadFile = File(...)):
-    if not is_allowed_file(file.filename):
+    if not file.filename or not is_allowed_file(file.filename):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     safe_filename = secure_unique_filename(file.filename)
@@ -49,8 +53,6 @@ async def sort_file(file: UploadFile = File(...)):
         lines.sort()
         with sorted_path.open("w") as f:
             f.writelines(lines)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to sort file")
 
         return {"sorted_file": sorted_filename}
 
@@ -61,7 +63,7 @@ async def sort_file(file: UploadFile = File(...)):
         if sorted_path.exists():
             sorted_path.unlink()
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail=f"Failed to process file: {str(e)}"
         )
     finally:

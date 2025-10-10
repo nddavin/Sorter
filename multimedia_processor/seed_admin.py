@@ -4,7 +4,6 @@ Populates DB with sample processed files for testing after migration.
 """
 
 import os
--from media_usage import bulk_process
 from .media_usage import bulk_process
 from .config import settings
 
