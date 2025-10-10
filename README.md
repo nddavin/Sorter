@@ -37,15 +37,36 @@ docker-compose up --build
 
 This will start the backend and frontend services.
 
+### Production Deployment
+
+For production, ensure the following environment variables are set:
+
+- `DATABASE_URL`: Database connection string (e.g., PostgreSQL URL)
+- `ENCRYPTION_KEY`: Key for encrypting sensitive data (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+- `UPLOAD_FOLDER`: Directory for uploads
+- `SORTED_FOLDER`: Directory for sorted files
+
+Use Docker Compose with production overrides or set environment variables accordingly.
+
 ## Usage
+
+### Web Interface
+
+Access the web interface at `http://localhost:5000` (or the configured frontend port). The interface is responsive and works on both desktop and mobile devices.
 
 ### API
 
-```python
-from sorter import SorterAPI
+The API is documented with OpenAPI/Swagger. Access the documentation at `/docs` or `/redoc` when the multimedia_processor is running.
 
-api = SorterAPI()
-api.sort_data("input_file.csv", "output_file.csv")
+For direct API usage:
+
+```python
+import requests
+
+# Upload and sort a file
+with open('input.txt', 'rb') as f:
+    response = requests.post('http://localhost:8000/api/upload', files={'file': f})
+    print(response.json())
 ```
 
 ### CLI

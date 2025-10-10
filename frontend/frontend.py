@@ -45,9 +45,9 @@ def upload_file():
         data = response.json()
         
         if "sorted_file" not in data:
-            return jsonify({"error": "Invalid response from backend"}), 502
-            
-        return jsonify(data)
+            return render_template("result.html", error="Invalid response from backend")
+
+        return render_template("result.html", sorted_file=data["sorted_file"])
 
     except requests.Timeout:
         return jsonify({
@@ -64,6 +64,15 @@ def upload_file():
             "error": "Invalid response from backend",
             "message": "The backend returned malformed data"
         }), 502
+
+@app.route("/download/<filename>")
+def download_file(filename):
+    try:
+        response = requests.get(f"{BACKEND_URL.replace('/sort', '/download/')}{filename}")
+        response.raise_for_status()
+        return response.content, response.status_code, response.headers.items()
+    except requests.RequestException:
+        return "File not found", 404
 
 if __name__ == "__main__":
     app.run(debug=DEBUG, host=HOST, port=PORT)

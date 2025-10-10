@@ -20,4 +20,6 @@ RUN mkdir -p ${UPLOAD_FOLDER}
 ENV DEBUG=false
 ENV HOST=0.0.0.0
 ENV PORT=5000
-ENV B
+
+# Run the application
+CMD ["python", "frontend.py"]
