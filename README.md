@@ -43,6 +43,7 @@ For production, ensure the following environment variables are set:
 
 - `DATABASE_URL`: Database connection string (e.g., PostgreSQL URL)
 - `ENCRYPTION_KEY`: Key for encrypting sensitive data (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins (e.g., "http://localhost:3000,https://yourdomain.com")
 - `UPLOAD_FOLDER`: Directory for uploads
 - `SORTED_FOLDER`: Directory for sorted files
 

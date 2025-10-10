@@ -5,17 +5,16 @@ Utilities for encrypting and decrypting data.
 
 from cryptography.fernet import Fernet
 import os
-from .config import settings
 
-# Generate or load encryption key
+# Load encryption key
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 if not ENCRYPTION_KEY:
-    # In production, this should be set via environment variable
-    # For development, generate a key (but warn)
-    print("WARNING: ENCRYPTION_KEY not set, generating a temporary key. Set ENCRYPTION_KEY in production.")
-    ENCRYPTION_KEY = Fernet.generate_key().decode()
+    raise ValueError(
+        "ENCRYPTION_KEY environment variable must be set. "
+        "Generate a key using: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+    )
 
-cipher = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY)
+cipher = Fernet(ENCRYPTION_KEY.encode())
 
 
 def encrypt_data(data: str) -> str:

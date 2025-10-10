@@ -2,29 +2,18 @@
 
 import os
 import logging
-from fastapi import APIRouter, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
-from typing import Generator
 
 logger = logging.getLogger(__name__)
 
-from .database import SessionLocal  # Your SQLAlchemy session
 from .settings import UPLOAD_DIR  # Make sure this is defined in settings.py
 
 router = APIRouter()
 
-# Dependency to get DB session
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 @router.post("/upload")
-async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
+async def upload_file(file: UploadFile):
     """
     Upload a file safely to the server.
     """
@@ -35,18 +24,12 @@ async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
     raw = os.path.basename(file.filename or "")
     # allow alphanumeric, dot, dash, underscore; replace anything else with '_'
     filename: str = re.sub(r"[^A-Za-z0-9._-]", "_", raw).strip("._") or f"upload-{uuid.uuid4().hex}"
-    if not filename:
-        logger.warning("Invalid filename provided")
-        raise HTTPException(status_code=400, detail="Invalid filename.")
 
     # Ensure upload directory exists
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     # Build safe path
-    # generate a unique upload path to avoid overwriting existing files
     upload_path: str = os.path.join(UPLOAD_DIR, filename)
-
-    # Save file in chunks
     try:
         CHUNK_SIZE = 1024 * 1024  # 1 MiB
         with open(upload_path, "wb") as f:
