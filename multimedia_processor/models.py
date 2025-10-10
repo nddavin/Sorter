@@ -13,14 +13,25 @@ class ProcessedFile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     file_type = Column(String, nullable=False, default="unknown")
-    _encrypted_content = Column("content", Text, nullable=False, default="")
+    _encrypted_content = Column("content", Text, nullable=True, default=None)
 
     @property
     def content(self) -> str:
         """Decrypt and return the content."""
-        return decrypt_data(self._encrypted_content)
+        if self._encrypted_content is None:
+            return ""
+        try:
+            return decrypt_data(self._encrypted_content)
+        except Exception as e:
+            raise ValueError(f"Failed to decrypt content for file {self.id}: {e}")
 
     @content.setter
-    def content(self, value: str):
+    def content(self, value: str | None):
         """Encrypt and store the content."""
-        self._encrypted_content = encrypt_data(value)
+        if value is None or value == "":
+            self._encrypted_content = None
+        else:
+            try:
+                self._encrypted_content = encrypt_data(value)
+            except Exception as e:
+                raise ValueError(f"Failed to encrypt content: {e}")

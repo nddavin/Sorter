@@ -1,7 +1,6 @@
 import os
-import tempfile
 import requests
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -23,16 +22,16 @@ def index():
 @app.route("/upload", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return render_template("result.html", error="No file part"), 400
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        return render_template("result.html", error="No selected file"), 400
 
     # Secure the filename
     filename = secure_filename(file.filename)
     if not filename.lower().endswith(".txt"):
-        return jsonify({"error": "Only .txt files are allowed"}), 400
+        return render_template("result.html", error="Only .txt files are allowed"), 400
 
     try:
         # Stream file directly to backend without temporary file
@@ -50,29 +49,31 @@ def upload_file():
         return render_template("result.html", sorted_file=data["sorted_file"])
 
     except requests.Timeout:
-        return jsonify({
-            "error": "Backend request timed out",
-            "message": "The operation took too long. Please try again."
-        }), 504
+        return render_template("result.html", error="Backend request timed out. Please try again."), 504
     except requests.RequestException as e:
-        return jsonify({
-            "error": "Backend request failed",
-            "details": str(e)
-        }), 502
+        return render_template("result.html", error=f"Backend request failed: {str(e)}"), 502
     except ValueError:
-        return jsonify({
-            "error": "Invalid response from backend",
-            "message": "The backend returned malformed data"
-        }), 502
+        return render_template("result.html", error="The backend returned malformed data"), 502
 
 @app.route("/download/<filename>")
 def download_file(filename):
+    # Sanitize filename to prevent path traversal
+    safe_filename = secure_filename(filename)
+
     try:
-        response = requests.get(f"{BACKEND_URL.replace('/sort', '/download/')}{filename}")
+        response = requests.get(
+            f"{BACKEND_URL.replace('/sort', '/download/')}{safe_filename}"
+        )
         response.raise_for_status()
         return response.content, response.status_code, response.headers.items()
-    except requests.RequestException:
-        return "File not found", 404
+    except requests.Timeout:
+        return "Backend request timed out", 504
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            return "File not found", 404
+        return f"Backend error: {e.response.status_code}", 502
+    except requests.RequestException as e:
+        return f"Backend request failed: {str(e)}", 502
 
 if __name__ == "__main__":
     app.run(debug=DEBUG, host=HOST, port=PORT)

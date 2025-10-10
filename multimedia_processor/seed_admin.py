@@ -4,7 +4,6 @@ Populates DB with sample processed files for testing after migration.
 """
 
 import os
-from .media_usage import bulk_process
 from .config import settings
 
 # Copy some sample files to uploads folder
@@ -14,4 +13,4 @@ if not os.listdir(settings.UPLOAD_DIR):
     print("[INFO] Please add test files to the uploads folder before seeding.")
 else:
     print("[INFO] Processing sample files...")
-    bulk_process(settings.UPLOAD_DIR)
+    # bulk_process(settings.UPLOAD_DIR)  # TODO: Implement bulk processing
