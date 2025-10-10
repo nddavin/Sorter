@@ -12,12 +12,17 @@ DEBUG = os.getenv("DEBUG", "false").lower() in ["1", "true", "yes"]
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", 5000))
 
-# Backend URL inside Docker Compose network
+# Backend URLs inside Docker Compose network
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000/sort")
+BACKEND_DOWNLOAD_URL = os.getenv("BACKEND_DOWNLOAD_URL", "http://backend:8000/download")
 
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
+
+@app.route("/health")
+def health():
+    return {"status": "healthy"}
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -61,9 +66,7 @@ def download_file(filename):
     safe_filename = secure_filename(filename)
 
     try:
-        response = requests.get(
-            f"{BACKEND_URL.replace('/sort', '/download/')}{safe_filename}"
-        )
+        response = requests.get(f"{BACKEND_DOWNLOAD_URL}/{safe_filename}")
         response.raise_for_status()
         return response.content, response.status_code, response.headers.items()
     except requests.Timeout:
