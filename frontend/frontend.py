@@ -66,7 +66,7 @@ def download_file(filename):
     safe_filename = secure_filename(filename)
 
     try:
-        response = requests.get(f"{BACKEND_DOWNLOAD_URL}/{safe_filename}")
+        response = requests.get(f"{BACKEND_DOWNLOAD_URL}/{safe_filename}", timeout=30)
         response.raise_for_status()
         return response.content, response.status_code, response.headers.items()
     except requests.Timeout:
