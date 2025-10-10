@@ -13,7 +13,11 @@ from .api import router
 Base.metadata.create_all(bind=engine)
 
 # Configure allowed origins from environment variable
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5000").split(",")
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5000").split(",")
+    if origin.strip()
+]
 
 app = FastAPI(title="Multimedia Processor API", docs_url="/docs", redoc_url="/redoc")
 app.add_middleware(

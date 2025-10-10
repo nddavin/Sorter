@@ -2,23 +2,23 @@
 
 ## Overview
 
-Sorter is a Dockerized application designed to efficiently organize and manage datasets. The project includes automated workflows via GitHub Actions for seamless deployment and testing.
+Sorter is a comprehensive file processing application with both web and API interfaces. It provides secure file upload, sorting capabilities, and data encryption for production environments.
 
 ## Features
 
-1. Automated data sorting and management
-1. Dockerized environment for consistent deployment
-1. GitHub Actions workflows for CI/CD
-1. Easy-to-use CLI and API interface
-1. Modular and extensible design
+- **File Processing**: Sort text files with automatic organization
+- **Web Interface**: Responsive web application compatible with desktop and mobile devices
+- **REST API**: FastAPI-based API with automatic documentation
+- **Security**: Data encryption, secure file handling, and path traversal protection
+- **Docker Support**: Containerized deployment with Docker Compose
+- **Production Ready**: Logging, health checks, and environment-based configuration
 
-## Project Structure
+## Architecture
 
-1. `backend/` - FastAPI backend API
-1. `frontend/` - Web interface for interacting with the sorter
-1. `docker/` - Docker configurations
-1. `workflows/` - GitHub Actions CI/CD pipelines
-1. `README.md` - Project documentation
+- **Backend**: FastAPI application handling file processing and API endpoints
+- **Frontend**: Flask web application providing user interface
+- **Database**: SQLite with encrypted content storage
+- **Security**: Fernet encryption for sensitive data
 
 ## Installation
 
@@ -44,6 +44,7 @@ For production, ensure the following environment variables are set:
 - `DATABASE_URL`: Database connection string (e.g., PostgreSQL URL)
 - `ENCRYPTION_KEY`: Key for encrypting sensitive data (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins (e.g., "http://localhost:3000,https://yourdomain.com")
+- `BACKEND_DOWNLOAD_URL`: URL for the backend download endpoint (default: "http://backend:8000/download")
 - `UPLOAD_FOLDER`: Directory for uploads
 - `SORTED_FOLDER`: Directory for sorted files
 
@@ -69,6 +70,55 @@ with open('input.txt', 'rb') as f:
     response = requests.post('http://localhost:8000/api/upload', files={'file': f})
     print(response.json())
 ```
+
+## Security
+
+- **Data Encryption**: All processed file content is encrypted using Fernet symmetric encryption
+- **File Upload Security**: Filename sanitization and path traversal protection
+- **CORS Configuration**: Configurable allowed origins for cross-origin requests
+- **Input Validation**: File type restrictions and size limits
+
+## Production Deployment
+
+### Environment Variables
+
+Set the following environment variables for production:
+
+- `DATABASE_URL`: Database connection string (default: SQLite)
+- `ENCRYPTION_KEY`: Required encryption key (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+- `ALLOWED_ORIGINS`: CORS allowed origins (default: localhost URLs)
+- `BACKEND_URL`: Backend API URL (default: http://backend:8000/sort)
+- `BACKEND_DOWNLOAD_URL`: Backend download URL (default: http://backend:8000/download)
+- `UPLOAD_FOLDER`: Upload directory path
+- `SORTED_FOLDER`: Sorted files directory path
+- `DEBUG`: Set to "false" for production
+- `HOST`: Host to bind to (default: 0.0.0.0)
+- `PORT`: Port to bind to
+
+### Docker Deployment
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build -d
+
+# Check logs
+docker-compose logs -f
+
+# Scale services if needed
+docker-compose up -d --scale backend=2
+```
+
+### Health Checks
+
+The application includes health check endpoints:
+- Backend: `GET /health`
+- Services monitored via Docker health checks
+
+### Monitoring
+
+- Structured logging with configurable levels
+- Docker logging with size limits and rotation
+- API documentation available at runtime
 
 ### CLI
 
