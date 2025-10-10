@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorter Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 { color: #333; text-align: center; }
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            word-wrap: break-word;
+        }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .success { background-color: #d4edda; color: #155724; }
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        a:hover { background-color: #0056b3; }
+
+        @media (max-width: 600px) {
+            body { margin: 10px; padding: 15px; }
+            h1 { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Sorter Result</h1>
+    {% if error %}
+        <div class="message error">{{ error }}</div>
+    {% else %}
+        <div class="message success">File sorted successfully!</div>
+        <a href="/download/{{ sorted_file }}">Download Sorted File</a>
+    {% endif %}
+    <br><br>
+    <a href="/">Upload Another File</a>
+</body>
+</html>

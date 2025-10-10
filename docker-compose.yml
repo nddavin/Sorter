@@ -40,10 +40,17 @@ services:
       PORT: "5000"
       UPLOAD_FOLDER: /tmp/uploads
       BACKEND_URL: http://backend:8000/sort
+      BACKEND_DOWNLOAD_URL: http://backend:8000/download
     ports:
       - 5000:5000
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     # If the frontend writes to UPLOAD_FOLDER, mount a volume so data isn't lost on restart
     volumes:
       - frontend_uploads:/tmp/uploads
