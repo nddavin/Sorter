@@ -2,70 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sorter App</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; }
-        h1 { color: #333; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 { color: #333; text-align: center; }
         form { margin-top: 30px; }
-        input[type="file"] { margin-bottom: 20px; }
-        button { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        input[type="file"] {
+            margin-bottom: 20px;
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            border-radius: 5px;
+        }
         button:hover { background-color: #45a049; }
-        .message { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            word-wrap: break-word;
+        }
         .error { background-color: #f8d7da; color: #721c24; }
         .success { background-color: #d4edda; color: #155724; }
+
+        @media (max-width: 600px) {
+            body { margin: 10px; padding: 15px; }
+            h1 { font-size: 24px; }
+            button { padding: 15px; }
+        }
     </style>
 </head>
 <body>
     <h1>Sorter App</h1>
     <p>Select a text file to sort its contents:</p>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" name="file" id="fileInput" accept=".txt" required>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <label for="file">Select a text file to sort its contents:</label>
+        <input id="file" type="file" name="file" accept=".txt" required>
         <br>
         <button type="submit">Upload & Sort</button>
     </form>
-
-    <div id="message" class="message" style="display:none;"></div>
-
-    <script>
-        const form = document.getElementById('uploadForm');
-        const messageDiv = document.getElementById('message');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            messageDiv.style.display = 'none';
-            const fileInput = document.getElementById('fileInput');
-            if (!fileInput.files.length) return;
-
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-
-            try {
-                const response = await fetch('http://backend:8000/sort', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-                const data = await response.json();
-                if (!data.sorted_file) throw new Error('No sorted file returned.');
-
-                const link = document.createElement('a');
-                link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(data.sorted_file);
-                link.download = 'sorted_' + fileInput.files[0].name;
-                link.click();
-
-                messageDiv.textContent = 'File sorted successfully!';
-                messageDiv.className = 'message success';
-                messageDiv.style.display = 'block';
-
-            } catch (err) {
-                console.error(err);
-                messageDiv.textContent = 'Error: ' + err.message;
-                messageDiv.className = 'message error';
-                messageDiv.style.display = 'block';
-            }
-        });
-    </script>
 </body>
 </html>

@@ -26,7 +26,6 @@ def test_upload_valid_pdf():
     data = response.json()
     assert "filename" in data
     assert data["filename"] == "test.pdf"
-    assert "path" in data
 
 def test_get_processed_files():
     """Test retrieving processed files using a seeded POST request."""

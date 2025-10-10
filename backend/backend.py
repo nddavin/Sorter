@@ -1,8 +1,7 @@
 import os
-import shutil
 from uuid import uuid4
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 
 app = FastAPI()
@@ -14,6 +13,11 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 SORTED_FOLDER.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".txt"}
+
+
+@app.get("/health")
+def health_check():
+    return JSONResponse(content={"status": "healthy"})
 
 
 def is_allowed_file(filename: str) -> bool:
@@ -29,39 +33,41 @@ def secure_unique_filename(filename: str) -> str:
 
 @app.post("/sort")
 async def sort_file(file: UploadFile = File(...)):
-    if not is_allowed_file(file.filename):
+    if not file.filename or not is_allowed_file(file.filename):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     safe_filename = secure_unique_filename(file.filename)
     upload_path = UPLOAD_FOLDER / safe_filename
-
-    # Save uploaded file safely
-    try:
-        with upload_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    finally:
-        await file.close()
-
-    # Sort file contents
     sorted_filename = f"sorted_{safe_filename}"
     sorted_path = SORTED_FOLDER / sorted_filename
 
     try:
+        # Save file in chunks (1MB at a time)
+        with upload_path.open("wb") as buffer:
+            while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                buffer.write(chunk)
+
+        # Sort file contents
         with upload_path.open("r") as f:
             lines = f.readlines()
         lines.sort()
         with sorted_path.open("w") as f:
             f.writelines(lines)
-        
-        # Clean up uploaded file after successful sorting
-        upload_path.unlink()
+
+        return {"sorted_file": sorted_filename}
+
     except Exception as e:
-        # Clean up any partial files if sorting failed
+        # Clean up files if error occurs
+        if upload_path.exists():
+            upload_path.unlink()
         if sorted_path.exists():
             sorted_path.unlink()
-        raise HTTPException(status_code=500, detail=f"Failed to sort file: {str(e)}")
-
-    return {"sorted_file": sorted_filename}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process file: {str(e)}"
+        )
+    finally:
+        await file.close()
 
 
 @app.get("/download/{filename}")
