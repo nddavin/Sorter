@@ -12,5 +12,5 @@ from .config import settings
 if not os.listdir(settings.UPLOAD_DIR):
     print("[INFO] Please add test files to the uploads folder before seeding.")
 else:
-    print("[INFO] Processing sample files...")
-    bulk_process(settings.UPLOAD_DIR)
+    print("[INFO] Sample files detected in uploads folder.")
+    print("[INFO] Bulk processing functionality not yet implemented.")
