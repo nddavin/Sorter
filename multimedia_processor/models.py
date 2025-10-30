@@ -35,7 +35,7 @@ class ProcessedFile(Base):
     file_type = Column(String, nullable=False, default="unknown")
     file_size = Column(Integer, nullable=False)
     upload_date = Column(DateTime, default=datetime.utcnow)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     _encrypted_content = Column("content", Text, nullable=True, default=None)
 
     # Relationship to user

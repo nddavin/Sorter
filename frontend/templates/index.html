@@ -362,9 +362,9 @@
                 text.className = 'card-text small text-muted';
 
                 // Create text content safely
-                const typeText = document.createTextNode(`Type: ${file.file_type}`);
-                const sizeText = document.createTextNode(`Size: ${(file.file_size / 1024).toFixed(2)} KB`);
-                const dateText = document.createTextNode(`Uploaded: ${new Date(file.created_at).toLocaleDateString()}`);
+                const uploadDate = new Date(file.created_at);
+                const dateString = uploadDate.getTime() ? uploadDate.toLocaleDateString() : 'Unknown date';
+                const dateText = document.createTextNode(`Uploaded: ${dateString}`);
 
                 const br1 = document.createElement('br');
                 const br2 = document.createElement('br');

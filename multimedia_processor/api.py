@@ -63,15 +63,19 @@ async def upload_file(
             detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
         )
 
-    # Check file size
+    # Check file size by streaming
     file_size = 0
-    content = await file.read()
-    file_size = len(content)
-    if file_size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
-        )
+    chunk_size = 1024 * 1024  # 1MB chunks
+    chunks = []
+    while chunk := await file.read(chunk_size):
+        file_size += len(chunk)
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
+            )
+        chunks.append(chunk)
+    content = b''.join(chunks)
 
     # Sanitize filename
     import re, uuid

@@ -60,9 +60,9 @@ class File(Base):
     processing_error = Column(Text)
 
     # Metadata
-    metadata = Column(JSON, default=dict)  # Extracted metadata (dimensions, duration, etc.)
-    tags = Column(JSON, default=list)  # User-defined tags
-    custom_fields = Column(JSON, default=dict)  # Custom metadata fields
+    metadata = Column(JSON, default=lambda: {})  # Extracted metadata (dimensions, duration, etc.)
+    tags = Column(JSON, default=lambda: [])  # User-defined tags
+    custom_fields = Column(JSON, default=lambda: {})  # Custom metadata fields
 
     # Sorting and organization
     sort_priority = Column(Float, default=0.0)
@@ -85,7 +85,6 @@ class File(Base):
         Index('idx_file_owner_status', 'owner_id', 'processing_status'),
         Index('idx_file_type_size', 'file_type', 'file_size'),
         Index('idx_file_created', 'created_at'),
-        Index('idx_file_hash', 'file_hash'),
     )
 
 
@@ -141,7 +140,7 @@ class AuditLog(Base):
     resource_id = Column(String(100))  # ID of the affected resource
 
     # Details
-    details = Column(JSON, default=dict)  # Additional context
+    details = Column(JSON, default=lambda: {})  # Additional context
     old_values = Column(JSON)  # For update operations
     new_values = Column(JSON)  # For update operations
 
@@ -154,11 +153,10 @@ class AuditLog(Base):
     api_key_used = Column(Boolean, default=False)
 
     __table_args__ = (
-        Index('idx_audit_timestamp', 'timestamp'),
+    __table_args__ = (
         Index('idx_audit_user_action', 'user_id', 'action'),
         Index('idx_audit_resource', 'resource_type', 'resource_id'),
     )
-
 
 class Workflow(Base):
     """Automated workflow definitions."""
@@ -171,10 +169,10 @@ class Workflow(Base):
 
     # Workflow configuration
     trigger_type = Column(String(20), nullable=False)  # manual, scheduled, event
-    trigger_config = Column(JSON, default=dict)  # Trigger-specific configuration
+    trigger_config = Column(JSON, default=lambda: {})  # Trigger-specific configuration
 
     steps = Column(JSON, nullable=False)  # Workflow steps definition
-    variables = Column(JSON, default=dict)  # Workflow variables
+    variables = Column(JSON, default=lambda: {})  # Workflow variables
 
     # Scheduling
     schedule_cron = Column(String(100))
@@ -216,15 +214,15 @@ class WorkflowExecution(Base):
 
     # Trigger info
     trigger_type = Column(String(20))
-    trigger_details = Column(JSON, default=dict)
+    trigger_details = Column(JSON, default=lambda: {})
 
     # Results
-    output = Column(JSON, default=dict)
+    output = Column(JSON, default=lambda: {})
     error_message = Column(Text)
 
     # Context
-    variables = Column(JSON, default=dict)
-    files_processed = Column(JSON, default=list)
+    variables = Column(JSON, default=lambda: {})
+    files_processed = Column(JSON, default=lambda: [])
 
     __table_args__ = (
         Index('idx_workflow_exec_status', 'workflow_id', 'status'),
@@ -237,7 +235,7 @@ class SearchIndex(Base):
     __tablename__ = "search_index"
 
     id = Column(Integer, primary_key=True, index=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False, unique=True)
     file = relationship("File")
 
     # Searchable content

@@ -113,12 +113,16 @@ class FileProcessor:
     def _extract_image_metadata(self, file_path: str) -> Dict[str, Any]:
         """Extract image metadata."""
         with Image.open(file_path) as img:
+            has_alpha = img.mode in ('RGBA', 'LA')
+            if img.mode == 'P' and 'transparency' in img.info:
+                has_alpha = True
+            
             return {
                 'width': img.width,
                 'height': img.height,
                 'format': img.format,
                 'mode': img.mode,
-                'has_alpha': img.mode in ('RGBA', 'LA', 'P'),
+                'has_alpha': has_alpha,
             }
 
     def _extract_video_metadata(self, file_path: str) -> Dict[str, Any]:
@@ -166,7 +170,7 @@ class FileProcessor:
                         'subject': pdf.metadata.get('/Subject', ''),
                         'creator': pdf.metadata.get('/Creator', ''),
                     }
-            elif ext in ['.docx', '.doc']:
+            elif ext == '.docx':
                 doc = docx.Document(file_path)
                 metadata = {
                     'paragraphs': len(doc.paragraphs),
@@ -221,26 +225,30 @@ class SortingEngine:
             try:
                 sorted_files = self._apply_single_rule(sorted_files, rule)
             except Exception as e:
-                logger.error(f"Failed to apply sorting rule {rule.name}: {e}")
-
-        return sorted_files
-
     def _apply_single_rule(self, files: List[File], rule: SortingRule) -> List[File]:
         """Apply a single sorting rule."""
         conditions = rule.conditions or {}
         actions = rule.actions or {}
 
         # Filter files based on conditions
-        filtered_files = []
+        matching_files = []
+        non_matching_files = []
         for file in files:
             if self._matches_conditions(file, conditions):
-                filtered_files.append(file)
+                matching_files.append(file)
+            else:
+                non_matching_files.append(file)
 
         # Apply sorting action
         sort_by = actions.get('sort_by')
         sort_order = actions.get('sort_order', 'asc')
 
         if sort_by:
+            reverse = sort_order == 'desc'
+            matching_files.sort(key=lambda f: self._get_sort_key(f, sort_by), reverse=reverse)
+
+        # Return matching files first, then non-matching
+        return matching_files + non_matching_files
             reverse = sort_order == 'desc'
             filtered_files.sort(key=lambda f: self._get_sort_key(f, sort_by), reverse=reverse)
 
@@ -276,7 +284,7 @@ class SortingEngine:
         elif sort_by == 'created_at':
             return file.created_at
         elif sort_by == 'modified_time':
-            return file.metadata.get('modified_time', file.created_at)
+            return file.modified_time if hasattr(file, 'modified_time') else file.created_at
         else:
             return file.filename.lower()  # Default fallback
 

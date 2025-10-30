@@ -7,6 +7,7 @@ import re
 import uuid
 import hashlib
 import magic
+import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import logging
@@ -27,11 +28,11 @@ class SecurityManager:
 
         # Dangerous file signatures (file magic bytes)
         self.dangerous_signatures = {
-            b'\\x4d\\x5a': 'Windows executable',  # MZ
-            b'\\x7f\\x45\\x4c\\x46': 'ELF executable',  # ELF
-            b'\\x23\\x21': 'Script file',  # #!
-            b'\\x3c\\x3f\\x70\\x68\\x70': 'PHP file',  # <?php
-            b'\\x3c\\x73\\x63\\x72\\x69\\x70\\x74': 'JavaScript/VBScript',  # <script
+            b'\x4d\x5a': 'Windows executable',  # MZ
+            b'\x7f\x45\x4c\x46': 'ELF executable',  # ELF
+            b'\x23\x21': 'Script file',  # #!
+            b'\x3c\x3f\x70\x68\x70': 'PHP file',  # <?php
+            b'\x3c\x73\x63\x72\x69\x70\x74': 'JavaScript/VBScript',  # <script
         }
 
     def validate_file_upload(self, filename: str, file_content: bytes, user_id: int) -> Dict[str, Any]:
@@ -206,7 +207,7 @@ class RateLimiter:
     def check_rate_limit(self, user_id: int, file_size: int) -> bool:
         """Check if user is within rate limits."""
         # Simplified implementation - in production, use Redis with TTL
-        current_time = int(os.time() // 3600)  # Current hour
+        current_time = int(time.time() // 3600)  # Current hour
 
         if user_id not in self.user_stats:
             self.user_stats[user_id] = {'hour': current_time, 'uploads': 0, 'size': 0}
@@ -220,7 +221,7 @@ class RateLimiter:
         # Check limits
         if stats['uploads'] >= self.max_uploads_per_hour:
             return False
-        if stats['size'] + file_size >= self.max_size_per_hour:
+        if stats['size'] + file_size > self.max_size_per_hour:
             return False
 
         # Update stats
@@ -234,16 +235,23 @@ class RateLimiter:
 security_manager = SecurityManager()
 rate_limiter = RateLimiter()
 
-
 def require_auth(roles: Optional[List[str]] = None):
     """Decorator to require authentication and optional role check."""
     def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Authentication logic would be implemented here
-            # This is a placeholder for the actual implementation
-            return await func(*args, **kwargs)
-        return wrapper
+        import asyncio
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                # Authentication logic would be implemented here
+                return await func(*args, **kwargs)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                # Authentication logic would be implemented here
+                return func(*args, **kwargs)
+            return sync_wrapper
+    return decorator
     return decorator
 
 

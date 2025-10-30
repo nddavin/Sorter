@@ -76,8 +76,13 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         role="user"  # Default role
     )
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    try:
+        db.commit()
+        db.refresh(db_user)
+    except Exception:
+        db.rollback()
+        raise
+    return db_user
     return db_user
 
 
@@ -143,14 +148,28 @@ def update_user_role(
     """Update user role (admin only)."""
     if role not in ["admin", "user"]:
         raise HTTPException(status_code=400, detail="Invalid role")
+    
+    # Prevent self-modification
+    if user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot modify your own role")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent removing the last admin
+    if user.role == "admin" and role != "admin":
+        admin_count = db.query(User).filter(User.role == "admin").count()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot remove the last admin")
 
     user.role = role
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise
     return user
 
 
@@ -162,11 +181,27 @@ def update_user_status(
     db: Session = Depends(get_db)
 ):
     """Activate/deactivate user (admin only)."""
+    # Prevent self-deactivation
+    if user_id == current_user.id and not is_active:
+        raise HTTPException(status_code=403, detail="Cannot deactivate your own account")
+    
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent deactivating the last active admin
+    if user.role == "admin" and not is_active:
+        active_admin_count = db.query(User).filter(
+            User.role == "admin", User.is_active == True
+        ).count()
+        if active_admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot deactivate the last active admin")
 
     user.is_active = is_active
-    db.commit()
-    db.refresh(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise
     return user

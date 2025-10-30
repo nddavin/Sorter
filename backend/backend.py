@@ -98,7 +98,7 @@ def download_file(filename: str):
 
     # Additional security: ensure the file is actually within the sorted folder
     try:
-        SORTED_FOLDER.resolve().relative_to(sorted_path.parent)
+        sorted_path.relative_to(SORTED_FOLDER)
     except ValueError:
         raise HTTPException(status_code=404, detail="File not found")
 

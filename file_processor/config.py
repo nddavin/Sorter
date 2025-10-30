@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
     # Database
-    database_url: str = "postgresql://user:password@localhost/file_processor"
+    database_url: str
     database_pool_size: int = 20
     database_max_overflow: int = 30
 
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     redis_cache_ttl: int = 3600
 
     # JWT
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     elasticsearch_index: str = "files"
 
     # RabbitMQ
-    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    rabbitmq_url: str = "amqp://localhost:5672/"
 
     # CORS
     allowed_origins: List[str] = ["http://localhost:3000", "http://localhost:5000"]
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     allowed_headers: List[str] = ["*"]
 
     # Security
-    encryption_key: str = "your-encryption-key-32-chars-long"
+    encryption_key: str
     bcrypt_rounds: int = 12
 
     # Application
