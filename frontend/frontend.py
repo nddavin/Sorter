@@ -1,6 +1,8 @@
 import os
+import re
+import io
 import requests
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, send_file
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -15,10 +17,19 @@ PORT = int(os.getenv("PORT", 5000))
 # Backend URLs inside Docker Compose network
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000/sort")
 BACKEND_DOWNLOAD_URL = os.getenv("BACKEND_DOWNLOAD_URL", "http://backend:8000/download")
+MULTIMEDIA_API_URL = os.getenv("MULTIMEDIA_API_URL", "http://multimedia_processor:8001/api")
 
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
+
+@app.route("/login", methods=["GET"])
+def login():
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET"])
+def register():
+    return render_template("register.html")
 
 @app.route("/health")
 def health():
@@ -61,14 +72,29 @@ def upload_file():
         return render_template("result.html", error="The backend returned malformed data"), 502
 
 @app.route("/download/<filename>")
-def download_file(filename):
+def download_file(filename: str):
+    # Validate filename to prevent path traversal
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
+        return "Invalid filename", 400
+
     # Sanitize filename to prevent path traversal
     safe_filename = secure_filename(filename)
+
+    # Additional validation - only allow alphanumeric, underscore, dash, and dot
+    if not re.match(r'^[a-zA-Z0-9_.-]+$', safe_filename):
+        return "Invalid filename", 400
 
     try:
         response = requests.get(f"{BACKEND_DOWNLOAD_URL}/{safe_filename}", timeout=30)
         response.raise_for_status()
-        return response.content, response.status_code, response.headers.items()
+
+        # Validate content type to prevent XSS - only allow text/plain
+        content_type = response.headers.get('content-type', '')
+        if not content_type.startswith('text/plain'):
+            return "Invalid file type", 400
+
+        # Return file as attachment to prevent XSS in browser rendering
+        return send_file(io.BytesIO(response.content), mimetype='text/plain', as_attachment=True, download_name=safe_filename)
     except requests.Timeout:
         return "Backend request timed out", 504
     except requests.HTTPError as e:
