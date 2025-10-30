@@ -97,9 +97,7 @@ def get_current_user(
 
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
-    """Get current active user."""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    """Get current active user (alias for get_current_user for API clarity)."""
     return current_user
 
 
@@ -123,17 +121,28 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     return user
 
 
-def create_user(db: Session, username: str, email: str, password: str, role: str = "user") -> User:
+def create_user(db: Session, username: str, email: str, password: str, role: str = "user", full_name: Optional[str] = None) -> User:
     """Create a new user."""
+    # Check for existing username
+    existing_user = db.query(User).filter(
+        (User.username == username) | (User.email == email)
+    ).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email already registered"
+        )
+
     hashed_password = get_password_hash(password)
     db_user = User(
         username=username,
         email=email,
         hashed_password=hashed_password,
-        role=role
+        role=role,
+        full_name=full_name
     )
     db.add(db_user)
-    db.commit()
+    # Note: No commit here - let caller handle transaction
     db.refresh(db_user)
     return db_user
 

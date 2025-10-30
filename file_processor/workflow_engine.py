@@ -2,6 +2,7 @@
 Advanced workflow automation engine for file processing.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Callable
@@ -130,9 +131,13 @@ class WorkflowStep:
         files = context.get('files', [])
         rule_ids = action_config.get('rule_ids', [])
 
-        with get_db_context() as db:
-            rules = db.query(SortingRule).filter(SortingRule.id.in_(rule_ids)).all()
-            sorted_files = sorting_engine.apply_sorting_rules(files, rules)
+        def _query_rules():
+            with get_db_context() as db:
+                return db.query(SortingRule).filter(SortingRule.id.in_(rule_ids)).all()
+
+        import asyncio
+        rules = await asyncio.to_thread(_query_rules)
+        sorted_files = sorting_engine.apply_sorting_rules(files, rules)
 
         return {
             'sorted_count': len(sorted_files),
@@ -151,7 +156,7 @@ class WorkflowStep:
 
         processed = []
         for file in files:
-            result = file_processor.process_file(file.file_path, file.filename)
+            result = await asyncio.to_thread(file_processor.process_file, file.file_path, file.filename)
             processed.append(result)
 
         return {
@@ -176,8 +181,9 @@ class WorkflowStep:
 
     async def _file_exists(self, file_path: str) -> bool:
         """Check if file exists."""
+        import asyncio
         import os
-        return os.path.exists(file_path)
+        return await asyncio.to_thread(os.path.exists, file_path)
 
 
 class WorkflowEngine:
@@ -199,13 +205,13 @@ class WorkflowEngine:
 
     async def start(self):
         """Start the workflow engine."""
-        await self.scheduler.start()
+        self.scheduler.start()
         await self._load_workflows()
         logger.info("Workflow engine started")
 
     async def stop(self):
         """Stop the workflow engine."""
-        await self.scheduler.shutdown()
+        self.scheduler.shutdown()
         logger.info("Workflow engine stopped")
 
     async def _load_workflows(self):
@@ -245,22 +251,20 @@ class WorkflowEngine:
 
         with get_db_context() as db:
             db.add(workflow)
+            # Audit log
+            audit_entry = AuditLog(
+                user_id=created_by_id,
+                action="create_workflow",
+                resource_type="workflow",
+                resource_id=str(workflow.id),
+                details={"workflow_name": name}
+            )
+            db.add(audit_entry)
             db.commit()
             db.refresh(workflow)
 
         self.workflows[workflow.id] = workflow
         await self._schedule_workflow(workflow)
-
-        # Audit log
-        audit_entry = AuditLog(
-            user_id=created_by_id,
-            action="create_workflow",
-            resource_type="workflow",
-            resource_id=str(workflow.id),
-            details={"workflow_name": name}
-        )
-        db.add(audit_entry)
-        db.commit()
 
         return workflow
 
@@ -270,14 +274,13 @@ class WorkflowEngine:
         if not workflow:
             raise ValueError(f"Workflow {workflow_id} not found")
 
-        execution = WorkflowExecution(
-            workflow_id=workflow_id,
-            status=WorkflowStatus.RUNNING.value,
-            trigger_type=trigger_context.get('trigger_type', 'manual') if trigger_context else 'manual',
-            trigger_details=trigger_context or {}
-        )
-
         with get_db_context() as db:
+            execution = WorkflowExecution(
+                workflow_id=workflow_id,
+                status=WorkflowStatus.RUNNING.value,
+                trigger_type=trigger_context.get('trigger_type', 'manual') if trigger_context else 'manual',
+                trigger_details=trigger_context or {}
+            )
             db.add(execution)
             db.commit()
             db.refresh(execution)
@@ -294,9 +297,11 @@ class WorkflowEngine:
                 step_result = await step.execute(context)
                 results.append(step_result)
 
-                # Update execution with step results
-                execution.output = results
-                db.commit()
+                # Update execution with step results in separate session
+                with get_db_context() as db:
+                    db_execution = db.query(WorkflowExecution).get(execution.id)
+                    db_execution.output = results
+                    db.commit()
 
             execution.status = WorkflowStatus.COMPLETED.value
             execution.completed_at = datetime.utcnow()
@@ -309,7 +314,14 @@ class WorkflowEngine:
             logger.error(f"Workflow {workflow_id} execution failed: {e}")
 
         finally:
-            db.commit()
+            with get_db_context() as db:
+                db_execution = db.query(WorkflowExecution).get(execution.id)
+                db_execution.status = execution.status
+                db_execution.completed_at = execution.completed_at
+                db_execution.runtime_seconds = execution.runtime_seconds
+                if hasattr(execution, 'error_message'):
+                    db_execution.error_message = execution.error_message
+                db.commit()
 
         return execution
 
@@ -325,13 +337,6 @@ class WorkflowEngine:
 
     async def trigger_event(self, event_type: str, event_data: Dict[str, Any]):
         """Trigger event and execute associated workflows."""
-        handlers = self.event_handlers.get(event_type, [])
-        for handler in handlers:
-            try:
-                await handler(event_data)
-            except Exception as e:
-                logger.error(f"Event handler failed: {e}")
-
         # Find workflows triggered by this event
         with get_db_context() as db:
             workflows = db.query(Workflow).filter(
@@ -346,19 +351,33 @@ class WorkflowEngine:
                     'event_data': event_data
                 })
 
+        handlers = self.event_handlers.get(event_type, [])
+        for handler in handlers:
+            try:
+                await handler(event_data)
+            except Exception as e:
+                logger.error(f"Event handler failed: {e}")
+
     async def get_workflow_stats(self) -> Dict[str, Any]:
         """Get workflow execution statistics."""
+        from sqlalchemy import func
+        
         with get_db_context() as db:
             total_workflows = db.query(Workflow).count()
             active_workflows = db.query(Workflow).filter(Workflow.is_active == True).count()
             total_executions = db.query(WorkflowExecution).count()
 
-            # Get execution stats
-            executions = db.query(WorkflowExecution).all()
-            completed = sum(1 for e in executions if e.status == WorkflowStatus.COMPLETED.value)
-            failed = sum(1 for e in executions if e.status == WorkflowStatus.FAILED.value)
-
-            avg_runtime = sum(e.runtime_seconds or 0 for e in executions if e.runtime_seconds) / max(len(executions), 1)
+            completed = db.query(WorkflowExecution).filter(
+                WorkflowExecution.status == WorkflowStatus.COMPLETED.value
+            ).count()
+            failed = db.query(WorkflowExecution).filter(
+                WorkflowExecution.status == WorkflowStatus.FAILED.value
+            ).count()
+            
+            avg_runtime_result = db.query(func.avg(WorkflowExecution.runtime_seconds)).filter(
+                WorkflowExecution.runtime_seconds.isnot(None)
+            ).scalar()
+            avg_runtime = avg_runtime_result or 0
 
             return {
                 'total_workflows': total_workflows,

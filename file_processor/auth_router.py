@@ -2,9 +2,9 @@
 Authentication router for user registration, login, and management.
 """
 
-from datetime import timedelta
-from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import timedelta, datetime
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -43,8 +43,7 @@ def register_user(
 
     # Create user
     try:
-        user = create_user(db, username, email, password, "user")
-        user.full_name = full_name
+        user = create_user(db, username, email, password, "user", full_name=full_name)
 
         # Log registration
         audit_entry = AuditLog(
@@ -72,6 +71,7 @@ def register_user(
 @router.post("/login", response_model=Dict[str, Any])
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """Authenticate user and return access token."""
@@ -84,8 +84,7 @@ def login_for_access_token(
         )
 
     # Update last login
-    user.last_login = "2025-01-01T00:00:00Z"  # Would use datetime.utcnow()
-    db.commit()
+    user.last_login = datetime.utcnow()
 
     # Create tokens
     access_token = create_access_token(
@@ -100,10 +99,10 @@ def login_for_access_token(
         action="login",
         resource_type="user",
         resource_id=str(user.id),
-        details={"ip_address": "127.0.0.1"}  # Would get from request
+        details={"ip_address": request.client.host if request.client else "unknown"}
     )
     db.add(audit_entry)
-    db.commit()
+    db.commit()  # Single commit for both operations
 
     return {
         "access_token": access_token,
@@ -171,14 +170,19 @@ def read_users_me(current_user: User = Depends(get_current_active_user)):
 
 @router.put("/me", response_model=Dict[str, Any])
 def update_user_profile(
-    full_name: str = None,
-    email: str = None,
+    full_name: Optional[str] = None,
+    email: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update current user profile."""
+    if full_name is None and email is None:
+        raise HTTPException(status_code=400, detail="At least one field must be provided")
+
+    fields_updated = []
     if full_name is not None:
         current_user.full_name = full_name
+        fields_updated.append("full_name")
     if email is not None:
         # Check if email is already taken
         existing = db.query(UserModel).filter(
@@ -188,8 +192,7 @@ def update_user_profile(
         if existing:
             raise HTTPException(status_code=400, detail="Email already in use")
         current_user.email = email
-
-    db.commit()
+        fields_updated.append("email")
 
     # Log profile update
     audit_entry = AuditLog(
@@ -197,10 +200,10 @@ def update_user_profile(
         action="update_profile",
         resource_type="user",
         resource_id=str(current_user.id),
-        details={"fields_updated": ["full_name"] if full_name else ["email"]}
+        details={"fields_updated": fields_updated}
     )
     db.add(audit_entry)
-    db.commit()
+    db.commit()  # Single commit
 
     return {
         "message": "Profile updated successfully",
@@ -233,7 +236,6 @@ def change_password(
 
     # Update password
     current_user.hashed_password = get_password_hash(new_password)
-    db.commit()
 
     # Log password change
     audit_entry = AuditLog(
@@ -243,7 +245,7 @@ def change_password(
         resource_id=str(current_user.id)
     )
     db.add(audit_entry)
-    db.commit()
+    db.commit()  # Single commit for both operations
 
     return {"message": "Password changed successfully"}
 
@@ -287,9 +289,11 @@ def update_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own role")
+
     old_role = user.role
     user.role = role
-    db.commit()
 
     # Log role change
     audit_entry = AuditLog(
@@ -317,8 +321,10 @@ def update_user_status(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user.id == current_user.id and not is_active:
+        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+
     user.is_active = is_active
-    db.commit()
 
     # Log status change
     audit_entry = AuditLog(
@@ -329,7 +335,7 @@ def update_user_status(
         details={"is_active": is_active}
     )
     db.add(audit_entry)
-    db.commit()
+    db.commit()  # Single commit
 
     status_text = "activated" if is_active else "deactivated"
     return {"message": f"User {status_text}"}
