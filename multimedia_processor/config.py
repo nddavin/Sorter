@@ -4,7 +4,7 @@ App configuration and database setup.
 """
 
 import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):

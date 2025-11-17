@@ -2,7 +2,7 @@ import pytest
 from io import BytesIO
 from PyPDF2 import PdfWriter
 from fastapi.testclient import TestClient
-from multimedia_processor.api import app
+from multimedia_processor.main import app
 
 client = TestClient(app)
 
@@ -20,7 +20,7 @@ def test_upload_valid_pdf():
     pdf_file = create_minimal_pdf_bytes()
     files = {"file": ("test.pdf", pdf_file, "application/pdf")}
     
-    response = client.post("/upload/", files=files)
+    response = client.post("/api/upload/", files=files)
     
     assert response.status_code == 200
     data = response.json()
@@ -32,11 +32,11 @@ def test_get_processed_files():
     # Seed the database by uploading a file
     pdf_file = create_minimal_pdf_bytes()
     files = {"file": ("seed.pdf", pdf_file, "application/pdf")}
-    upload_response = client.post("/upload/", files=files)
+    upload_response = client.post("/api/upload/", files=files)
     assert upload_response.status_code == 200
 
     # Now GET processed-files
-    response = client.get("/processed-files/")
+    response = client.get("/api/processed-files/")
     assert response.status_code == 200
     records = response.json()
     assert isinstance(records, list)
