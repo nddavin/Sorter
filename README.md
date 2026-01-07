@@ -1,4 +1,4 @@
-# 🚀 **SORTER - Enterprise File Processing System**
+# 🚀 **FILEFORGE - Enterprise File Processing System**
 
 ## 🎯 **Enterprise-Grade File Processing & Sorting Platform**
 
@@ -46,7 +46,7 @@ A production-ready, enterprise-grade file processing system with advanced securi
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           SORTER PROCESSING PIPELINE                         │
+│                           FILEFORGE PROCESSING PIPELINE                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌──────────┐    ┌──────────────┐    ┌───────────────┐    ┌──────────────┐ │
@@ -375,11 +375,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🔄 [Processing Pipeline](docs/processing-pipeline.md)
 
 ### Support Channels
-- 📧 Email: support@sorter-app.com
-- 📖 Docs: https://docs.sorter-app.com
-- 🐛 Issues: https://github.com/your-org/sorter/issues
-- 💬 Discussions: https://github.com/your-org/sorter/discussions
+- 📧 Email: support@fileforge-app.com
+- 📖 Docs: https://docs.fileforge-app.com
+- 🐛 Issues: https://github.com/your-org/fileforge/issues
+- 💬 Discussions: https://github.com/your-org/fileforge/discussions
 
 ---
 
-**Sorter** - Enterprise-grade file processing with intelligent automation and comprehensive security. Built for modern organizations requiring robust, scalable file management solutions.
+**FileForge** - Enterprise-grade file processing with intelligent automation and comprehensive security. Built for modern organizations requiring robust, scalable file management solutions.

@@ -4,7 +4,6 @@ Notification System
 Integrations for Slack, Microsoft Teams, Email, and Webhooks.
 """
 
-import json
 import smtplib
 import requests
 from abc import ABC, abstractmethod

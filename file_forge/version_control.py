@@ -4,7 +4,6 @@ Version Control System for File Revisions
 Provides file versioning, diff tracking, and rollback capabilities.
 """
 
-import hashlib
 import json
 from datetime import datetime
 from pathlib import Path

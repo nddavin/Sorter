@@ -1,8 +1,9 @@
+# type: ignore
 import pytest
 from io import BytesIO
 from PyPDF2 import PdfWriter
 from fastapi.testclient import TestClient
-from multimedia_processor.main import app
+from multimedia_forge.main import app
 
 client = TestClient(app)
 

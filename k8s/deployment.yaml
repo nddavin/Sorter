@@ -6,22 +6,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sorter-backend
+  name: fileforge-backend
   labels:
-    app: sorter-backend
+    app: fileforge-backend
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: sorter-backend
+      app: fileforge-backend
   template:
     metadata:
       labels:
-        app: sorter-backend
+        app: fileforge-backend
     spec:
       containers:
       - name: backend
-        image: sorter/backend:latest
+        image: fileforge/forge_backend:latest
         ports:
         - containerPort: 8000
         env:
@@ -33,17 +33,17 @@ spec:
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: sorter-secrets
+              name: fileforge-secrets
               key: secret-key
         - name: JWT_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: sorter-secrets
+              name: fileforge-secrets
               key: jwt-secret
         - name: ENCRYPTION_KEY
           valueFrom:
             secretKeyRef:
-              name: sorter-secrets
+              name: fileforge-secrets
               key: encryption-key
         resources:
           requests:
@@ -70,27 +70,27 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sorter-frontend
+  name: fileforge-frontend
   labels:
-    app: sorter-frontend
+    app: fileforge-frontend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: sorter-frontend
+      app: fileforge-frontend
   template:
     metadata:
       labels:
-        app: sorter-frontend
+        app: fileforge-frontend
     spec:
       containers:
       - name: frontend
-        image: sorter/frontend:latest
+        image: fileforge/forge_frontend:latest
         ports:
         - containerPort: 5000
         env:
         - name: BACKEND_URL
-          value: "http://sorter-backend:8000"
+          value: "http://fileforge-backend:8000"
         resources:
           requests:
             memory: "128Mi"
@@ -104,22 +104,22 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sorter-file-processor
+  name: fileforge-file-forge
   labels:
-    app: sorter-file-processor
+    app: fileforge-file-forge
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: sorter-file-processor
+      app: fileforge-file-forge
   template:
     metadata:
       labels:
-        app: sorter-file-processor
+        app: fileforge-file-forge
     spec:
       containers:
       - name: file-processor
-        image: sorter/file-processor:latest
+        image: fileforge/file-forge:latest
         ports:
         - containerPort: 8001
         env:
@@ -129,7 +129,7 @@ spec:
               name: sorter-secrets
               key: database-url
         - name: REDIS_URL
-          value: "redis://sorter-redis:6379/0"
+          value: "redis://fileforge-redis:6379/0"
         resources:
           requests:
             memory: "512Mi"
@@ -143,7 +143,7 @@ spec:
       volumes:
       - name: uploads
         persistentVolumeClaim:
-          claimName: sorter-uploads-pvc
+          claimName: fileforge-uploads-pvc
 
 ---
 # Redis Deployment
@@ -155,11 +155,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sorter-redis
+      app: fileforge-redis
   template:
     metadata:
       labels:
-        app: sorter-redis
+        app: fileforge-redis
     spec:
       containers:
       - name: redis
@@ -179,16 +179,16 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sorter-postgres
+  name: fileforge-postgres
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sorter-postgres
+      app: fileforge-postgres
   template:
     metadata:
       labels:
-        app: sorter-postgres
+        app: fileforge-postgres
     spec:
       containers:
       - name: postgres
@@ -204,7 +204,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: sorter-secrets
+              name: fileforge-secrets
               key: postgres-password
         resources:
           requests:
@@ -219,7 +219,7 @@ spec:
       volumes:
       - name: postgres-data
         persistentVolumeClaim:
-          claimName: sorter-postgres-pvc
+          claimName: fileforge-postgres-pvc
 
 ---
 # Service: Backend
@@ -229,7 +229,7 @@ metadata:
   name: sorter-backend
 spec:
   selector:
-    app: sorter-backend
+    app: fileforge-backend
   ports:
   - port: 8000
     targetPort: 8000
@@ -243,7 +243,7 @@ metadata:
   name: sorter-frontend
 spec:
   selector:
-    app: sorter-frontend
+    app: fileforge-frontend
   ports:
   - port: 5000
     targetPort: 5000
@@ -257,7 +257,7 @@ metadata:
   name: sorter-file-processor
 spec:
   selector:
-    app: sorter-file-processor
+    app: fileforge-file-forge
   ports:
   - port: 8001
     targetPort: 8001
@@ -271,7 +271,7 @@ metadata:
   name: sorter-redis
 spec:
   selector:
-    app: sorter-redis
+    app: fileforge-redis
   ports:
   - port: 6379
     targetPort: 6379
@@ -282,7 +282,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sorter-ingress
+  name: fileforge-ingress
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
@@ -290,21 +290,21 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: sorter.example.com
+  - host: fileforge.example.com
     http:
       paths:
       - path: /api
         pathType: Prefix
         backend:
           service:
-            name: sorter-backend
+            name: fileforge-backend
             port:
               number: 8000
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: sorter-frontend
+            name: fileforge-frontend
             port:
               number: 5000
 
@@ -313,12 +313,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sorter-backend-hpa
+  name: fileforge-backend-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sorter-backend
+    name: fileforge-backend
   minReplicas: 3
   maxReplicas: 10
   metrics:
@@ -334,12 +334,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sorter-file-processor-hpa
+  name: fileforge-file-forge-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sorter-file-processor
+    name: fileforge-file-forge
   minReplicas: 2
   maxReplicas: 5
   metrics:
@@ -355,7 +355,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: sorter-uploads-pvc
+  name: fileforge-uploads-pvc
 spec:
   accessModes:
     - ReadWriteOnce
@@ -367,7 +367,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: sorter-postgres-pvc
+  name: fileforge-postgres-pvc
 spec:
   accessModes:
     - ReadWriteOnce
@@ -380,7 +380,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: sorter-config
+  name: fileforge-config
 data:
   LOG_LEVEL: "INFO"
   DEBUG: "false"
@@ -392,12 +392,12 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: sorter-secrets
+  name: fileforge-secrets
 type: Opaque
 stringData:
-  database-url: "postgresql://user:pass@host:5432/sorter"
+  database-url: "postgresql://user:pass@host:5432/fileforge"
   secret-key: "your-secret-key-here"
   jwt-secret: "your-jwt-secret-here"
   encryption-key: "your-encryption-key-here"
-  postgres-user: "sorter"
+  postgres-user: "fileforge"
   postgres-password: "your-secure-password"

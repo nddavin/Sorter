@@ -14,9 +14,9 @@ SORTED_FOLDER.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".txt"}
 
-# Import auth dependencies (will be added when multimedia_processor is integrated)
-# from multimedia_processor.auth import get_current_active_user, get_db
-# from multimedia_processor.models import User
+# Import auth dependencies (will be added when multimedia_forge is integrated)
+# from multimedia_forge.auth import get_current_active_user, get_db
+# from multimedia_forge.models import User
 
 
 @app.get("/health")
