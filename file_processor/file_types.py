@@ -4,7 +4,6 @@ File type definitions and sorting configurations for comprehensive file processi
 
 from typing import Dict, List, Any, Optional
 from pathlib import Path
-import re
 
 
 class FileTypeManager:
@@ -191,6 +190,125 @@ class FileTypeManager:
                 ],
                 "metadata_extractors": ["business_metadata", "content_analysis"],
                 "processing_priority": "high"
+            },
+
+            # CAD/Engineering Files
+            "cad": {
+                "name": "CAD/Engineering Files",
+                "description": "CAD drawings and 3D models (DWG, DXF, STEP, IGES)",
+                "extensions": [
+                    ".dwg", ".dxf", ".step", ".stp", ".iges"
+                ],
+                "mime_types": [
+                    "application/acad", "application/dxf", "application/step",
+                    "application/iges", "model/iges", "model/step"
+                ],
+                "sorting_fields": [
+                    "file_type", "file_size", "created_at", "modified_time",
+                    "entities_count", "layers_count", "dxf_version", "schema"
+                ],
+                "metadata_extractors": ["cad_metadata", "bom_extraction", "dimension_extraction"],
+                "processing_priority": "high"
+            },
+
+            # E-books & Structured Documents
+            "ebook": {
+                "name": "E-books & Documents",
+                "description": "E-books and structured documents (EPUB, MOBI, FB2, HTML)",
+                "extensions": [
+                    ".epub", ".mobi", ".fb2", ".html", ".xhtml", ".chm"
+                ],
+                "mime_types": [
+                    "application/epub+zip", "application/x-mobipocket-ebook",
+                    "application/fb2+xml", "text/html", "application/xhtml+xml",
+                    "application/vnd.ms-htmlhelp"
+                ],
+                "sorting_fields": [
+                    "file_type", "file_size", "created_at", "modified_time",
+                    "title", "author", "language", "chapters_count"
+                ],
+                "metadata_extractors": ["ebook_metadata", "toc_extraction", "text_content"],
+                "processing_priority": "medium"
+            },
+
+            # Medical/Compliance Files
+            "medical": {
+                "name": "Medical & Compliance Files",
+                "description": "Medical imaging and compliance documents (DICOM, HL7, PDF/A)",
+                "extensions": [
+                    ".dcm", ".dicom", ".hl7", ".xhl7", ".pdfa", ".pdf"
+                ],
+                "mime_types": [
+                    "application/dicom", "application/hl7-v2", "application/hl7-v2+xml",
+                    "application/pdfa", "application/pdf"
+                ],
+                "sorting_fields": [
+                    "file_type", "file_size", "created_at", "modified_time",
+                    "patient_id", "study_date", "modality", "phi_detected",
+                    "hipaa_compliant"
+                ],
+                "metadata_extractors": ["medical_metadata", "phi_detection", "compliance_validation"],
+                "processing_priority": "critical"
+            },
+
+            # Geospatial Files
+            "geospatial": {
+                "name": "Geospatial Files",
+                "description": "Geographic and spatial data (Shapefile, GeoJSON, KML, GPX)",
+                "extensions": [
+                    ".shp", ".geojson", ".svg", ".kml", ".kmz", ".gpx", ".gml"
+                ],
+                "mime_types": [
+                    "application/shapefile", "application/geo+json", "image/svg+xml",
+                    "application/vnd.google-earth.kml+xml",
+                    "application/vnd.google-earth.kmz", "application/gpx+xml",
+                    "application/gml+xml"
+                ],
+                "sorting_fields": [
+                    "file_type", "file_size", "created_at", "modified_time",
+                    "features_count", "projection", "bounds", "layers_count"
+                ],
+                "metadata_extractors": ["geospatial_metadata", "bounds_extraction", "projection_info"],
+                "processing_priority": "high"
+            },
+
+            # Disk Images
+            "disk_image": {
+                "name": "Disk Images",
+                "description": "Disk image files and virtual disks (ISO, DMG, VHD, VMDK)",
+                "extensions": [
+                    ".dmg", ".iso", ".img", ".vhd", ".vmdk", ".bin"
+                ],
+                "mime_types": [
+                    "application/x-apple-diskimage", "application/x-iso9660-image",
+                    "application/x-raw-disk-image", "application/x-virtualbox-vhd",
+                    "application/x-virtualbox-vmdk"
+                ],
+                "sorting_fields": [
+                    "file_type", "file_size", "created_at", "modified_time",
+                    "total_files", "total_dirs", "filesystem", "format"
+                ],
+                "metadata_extractors": ["disk_metadata", "filesystem_detection", "contents_listing"],
+                "processing_priority": "low"
+            },
+
+            # Email Files
+            "email": {
+                "name": "Email Files",
+                "description": "Email files and archives (EML, MSG, PST, MBOX)",
+                "extensions": [
+                    ".eml", ".msg", ".pst", ".mbox"
+                ],
+                "mime_types": [
+                    "message/rfc822", "application/vnd.ms-outlook", "application/mbox"
+                ],
+                "sorting_fields": [
+                    "file_type", "file_size", "created_at", "modified_time",
+                    "sender", "recipient", "date", "attachments_count",
+                    "message_count"
+                ],
+                "metadata_extractors": ["email_metadata", "attachment_extraction", "sentiment_analysis"],
+                "processing_priority": "medium"
             }
         }
 

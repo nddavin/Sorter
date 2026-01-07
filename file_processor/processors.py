@@ -5,20 +5,34 @@ File processing engine with sorting, conversion, and analysis capabilities.
 import hashlib
 import mimetypes
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List
 from PIL import Image
-import moviepy.editor as mp
-from pydub import AudioSegment
-import PyPDF2
-import docx
 import logging
 from datetime import datetime
-import shutil
 
-from .config import settings
+# Optional dependencies for specialized file processing
+try:
+    import moviepy.editor as mp
+except ImportError:
+    mp = None
+
+try:
+    from pydub import AudioSegment
+except ImportError:
+    AudioSegment = None
+
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
+
+try:
+    import docx
+except ImportError:
+    docx = None
+
 from .models import File, SortingRule
-from .database import get_db_context
-from .encryption import encrypt_data
+from .specialized_processors import specialized_processor
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +47,16 @@ class FileProcessor:
             'video': ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv'],
             'audio': ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma'],
             'document': ['.pdf', '.docx', '.doc', '.txt', '.rtf', '.odt'],
-            'archive': ['.zip', '.rar', '.7z', '.tar', '.gz']
+            'archive': ['.zip', '.rar', '.7z', '.tar', '.gz'],
+            # Specialized formats
+            'cad': ['.dwg', '.dxf', '.step', '.stp', '.iges'],
+            'ebook': ['.epub', '.mobi', '.fb2', '.html', '.xhtml', '.chm'],
+            'medical': ['.dcm', '.dicom', '.hl7', '.xhl7', '.pdfa'],
+            'geospatial': ['.shp', '.geojson', '.svg', '.kml', '.kmz', '.gpx', '.gml'],
+            'disk_image': ['.dmg', '.iso', '.img', '.vhd', '.vmdk'],
+            'email': ['.eml', '.msg', '.pst', '.mbox']
         }
+        self._specialized_types = {'cad', 'ebook', 'medical', 'geospatial', 'disk_image', 'email'}
 
     def process_file(self, file_path: str, filename: str) -> Dict[str, Any]:
         """Process a file and extract metadata."""
@@ -55,6 +77,18 @@ class FileProcessor:
 
         # Calculate file hash
         file_hash = self._calculate_file_hash(file_path)
+
+        # Check if specialized processor can handle this file
+        if specialized_processor.can_process(filename):
+            try:
+                specialized_result = specialized_processor.process(file_path, filename)
+                # Merge specialized result with basic info
+                specialized_result['file_size'] = file_size
+                specialized_result['file_hash'] = file_hash
+                specialized_result['modified_time'] = modified_time
+                return specialized_result
+            except Exception as e:
+                logger.warning(f"Specialized processing failed for {filename}: {e}")
 
         # Extract metadata based on file type
         metadata = self._extract_metadata(file_path, filename, file_type)

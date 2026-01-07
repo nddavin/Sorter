@@ -1,0 +1,403 @@
+# Kubernetes Deployment Configuration
+# Apply with: kubectl apply -f k8s/
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sorter-backend
+  labels:
+    app: sorter-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sorter-backend
+  template:
+    metadata:
+      labels:
+        app: sorter-backend
+    spec:
+      containers:
+      - name: backend
+        image: sorter/backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: database-url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: secret-key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: jwt-secret
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: encryption-key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sorter-frontend
+  labels:
+    app: sorter-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sorter-frontend
+  template:
+    metadata:
+      labels:
+        app: sorter-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: sorter/frontend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: BACKEND_URL
+          value: "http://sorter-backend:8000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# File Processor Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sorter-file-processor
+  labels:
+    app: sorter-file-processor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sorter-file-processor
+  template:
+    metadata:
+      labels:
+        app: sorter-file-processor
+    spec:
+      containers:
+      - name: file-processor
+        image: sorter/file-processor:latest
+        ports:
+        - containerPort: 8001
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: database-url
+        - name: REDIS_URL
+          value: "redis://sorter-redis:6379/0"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: uploads
+          mountPath: /app/uploads
+      volumes:
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: sorter-uploads-pvc
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sorter-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sorter-redis
+  template:
+    metadata:
+      labels:
+        app: sorter-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sorter-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sorter-postgres
+  template:
+    metadata:
+      labels:
+        app: sorter-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15
+        env:
+        - name: POSTGRES_DB
+          value: "sorter"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sorter-secrets
+              key: postgres-password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: sorter-postgres-pvc
+
+---
+# Service: Backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: sorter-backend
+spec:
+  selector:
+    app: sorter-backend
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
+
+---
+# Service: Frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: sorter-frontend
+spec:
+  selector:
+    app: sorter-frontend
+  ports:
+  - port: 5000
+    targetPort: 5000
+  type: ClusterIP
+
+---
+# Service: File Processor
+apiVersion: v1
+kind: Service
+metadata:
+  name: sorter-file-processor
+spec:
+  selector:
+    app: sorter-file-processor
+  ports:
+  - port: 8001
+    targetPort: 8001
+  type: ClusterIP
+
+---
+# Service: Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: sorter-redis
+spec:
+  selector:
+    app: sorter-redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+
+---
+# Ingress Configuration
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sorter-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sorter.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: sorter-backend
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sorter-frontend
+            port:
+              number: 5000
+
+---
+# Horizontal Pod Autoscaler: Backend
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sorter-backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sorter-backend
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+# Horizontal Pod Autoscaler: File Processor
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sorter-file-processor-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sorter-file-processor
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+# Persistent Volume Claims
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sorter-uploads-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sorter-postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sorter-config
+data:
+  LOG_LEVEL: "INFO"
+  DEBUG: "false"
+  MAX_FILE_SIZE: "52428800"
+  ALLOWED_EXTENSIONS: "pdf,doc,docx,txt,jpg,jpeg,png,gif,mp4,mp3,zip"
+
+---
+# Secret (use sealed secrets in production)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sorter-secrets
+type: Opaque
+stringData:
+  database-url: "postgresql://user:pass@host:5432/sorter"
+  secret-key: "your-secret-key-here"
+  jwt-secret: "your-jwt-secret-here"
+  encryption-key: "your-encryption-key-here"
+  postgres-user: "sorter"
+  postgres-password: "your-secure-password"

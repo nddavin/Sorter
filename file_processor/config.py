@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     upload_dir: str = "/app/uploads"
     processed_dir: str = "/app/processed"
     temp_dir: str = "/app/temp"
+    revisions_dir: str = "/app/revisions"
+    backup_dir: str = "/app/backups"
     max_file_size: int = 100 * 1024 * 1024  # 100MB
     allowed_extensions: List[str] = [
         ".txt", ".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png",
@@ -70,6 +72,38 @@ class Settings(BaseSettings):
     # External Services
     sentry_dsn: Optional[str] = None
     cdn_url: Optional[str] = None
+
+    # Cloud Storage
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    aws_region: str = "us-east-1"
+    aws_bucket_name: Optional[str] = None
+    google_credentials_file: Optional[str] = None
+    google_token_file: Optional[str] = None
+    azure_account_name: Optional[str] = None
+    azure_account_key: Optional[str] = None
+    azure_container: str = "default"
+
+    # Notifications
+    smtp_server: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    email_from: Optional[str] = None
+    slack_webhook_url: Optional[str] = None
+    slack_channel: Optional[str] = None
+    teams_webhook_url: Optional[str] = None
+
+    # AI/ML
+    ocr_enabled: bool = True
+    classification_enabled: bool = True
+    auto_tagging_enabled: bool = True
+
+    # Backups
+    backup_enabled: bool = False
+    backup_retention_days: int = 30
+    backup_max_count: int = 100
+    backup_interval_hours: int = 24
 
     class Config:
         env_file = ".env"

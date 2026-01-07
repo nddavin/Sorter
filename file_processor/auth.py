@@ -1,17 +1,21 @@
 """
-Authentication and authorization utilities.
+Authentication and authorization utilities with enterprise security controls.
 """
 
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+import os
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict, Any, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, Depends, status
+from fastapi import HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from starlette.responses import JSONResponse
 
 from .config import settings
-from .models import User
+from .models import User, Session as UserSession
 from .database import get_db
 
 # Password hashing
@@ -19,6 +23,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT
 security = HTTPBearer()
+
+# Token expiration settings (session hardening)
+ACCESS_TOKEN_EXPIRE_MINUTES = 15  # Short-lived access tokens
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+DEVICE_TOKEN_EXPIRE_DAYS = 30
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -32,23 +41,36 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Create JWT access token."""
+    """Create JWT access token with short expiration."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({"exp": expire, "type": "access"})
+    to_encode.update({
+        "exp": expire, 
+        "type": "access",
+        "iat": datetime.now(timezone.utc)
+    })
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
 
-def create_refresh_token(data: Dict[str, Any]) -> str:
-    """Create JWT refresh token."""
+def create_refresh_token(data: Dict[str, Any], device_fingerprint: str = None) -> str:
+    """Create JWT refresh token with device binding."""
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({
+        "exp": expire, 
+        "type": "refresh",
+        "iat": datetime.now(timezone.utc)
+    })
+    
+    # Bind to device if provided
+    if device_fingerprint:
+        to_encode["device_id"] = device_fingerprint
+    
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
@@ -62,11 +84,88 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def generate_device_fingerprint(request: Request) -> str:
+    """Generate device fingerprint from request headers."""
+    # Collect client identifiers
+    user_agent = request.headers.get("user-agent", "")
+    accept_language = request.headers.get("accept-language", "")
+    accept_encoding = request.headers.get("accept-encoding", "")
+    
+    # Create fingerprint
+    fingerprint_string = f"{user_agent}|{accept_language}|{accept_encoding}"
+    return hashlib.sha256(fingerprint_string.encode()).hexdigest()[:16]
+
+
+def create_session(db: Session, user_id: int, device_fingerprint: str, ip_address: str) -> UserSession:
+    """Create a new user session with device binding."""
+    session = UserSession(
+        user_id=user_id,
+        device_fingerprint=device_fingerprint,
+        ip_address=ip_address,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=DEVICE_TOKEN_EXPIRE_DAYS),
+        is_active=True
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def validate_session(db: Session, session_id: int, device_fingerprint: str) -> bool:
+    """Validate session exists and device matches."""
+    session = db.query(UserSession).filter(
+        UserSession.id == session_id,
+        UserSession.is_active == True
+    ).first()
+    
+    if not session:
+        return False
+    
+    if session.expires_at < datetime.now(timezone.utc):
+        session.is_active = False
+        db.commit()
+        return False
+    
+    # Device fingerprint check
+    if session.device_fingerprint != device_fingerprint:
+        logger.warning(f"Session {session_id} device mismatch - possible session hijacking")
+        session.is_active = False
+        db.commit()
+        return False
+    
+    return True
+
+
+def rotate_refresh_token(db: Session, old_token: str, device_fingerprint: str, user_id: int) -> Tuple[str, str]:
+    """Rotate refresh token for session security."""
+    payload = verify_token(old_token)
+    
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+    
+    # Verify device matches
+    if payload.get("device_id") and payload.get("device_id") != device_fingerprint:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Device mismatch - please re-authenticate"
+        )
+    
+    # Create new tokens
+    new_access_token = create_access_token({"sub": payload.get("sub"), "session_id": payload.get("session_id")})
+    new_refresh_token = create_refresh_token({"sub": payload.get("sub"), "session_id": payload.get("session_id")}, device_fingerprint)
+    
+    return new_access_token, new_refresh_token
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request = None,
     db: Session = Depends(get_db)
 ) -> User:
-    """Get current authenticated user."""
+    """Get current authenticated user with session validation."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -81,6 +180,16 @@ def get_current_user(
 
     if payload.get("type") != "access":
         raise credentials_exception
+
+    # Validate session if session_id in token
+    session_id = payload.get("session_id")
+    if session_id and request:
+        device_fingerprint = generate_device_fingerprint(request)
+        if not validate_session(db, session_id, device_fingerprint):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired or invalid - please re-authenticate"
+            )
 
     username: str = payload.get("sub")
     if username is None:
@@ -142,7 +251,6 @@ def create_user(db: Session, username: str, email: str, password: str, role: str
         full_name=full_name
     )
     db.add(db_user)
-    # Note: No commit here - let caller handle transaction
     db.refresh(db_user)
     return db_user
 
@@ -163,13 +271,11 @@ def check_permissions(user: User, required_role: str) -> bool:
 
 def generate_api_key() -> str:
     """Generate a secure API key."""
-    import secrets
     return secrets.token_urlsafe(32)
 
 
 def hash_api_key(api_key: str) -> str:
     """Hash API key for storage."""
-    import hashlib
     return hashlib.sha256(api_key.encode()).hexdigest()
 
 
@@ -178,3 +284,7 @@ def verify_api_key(db: Session, api_key: str) -> Optional[User]:
     hashed_key = hash_api_key(api_key)
     user = db.query(User).filter(User.api_key == hashed_key).first()
     return user if user and user.is_active else None
+
+
+import logging
+logger = logging.getLogger(__name__)

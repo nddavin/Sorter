@@ -15,6 +15,9 @@ from .config import settings
 from .database import create_tables
 from .auth_router import router as auth_router
 from .api import router as api_router
+from .enterprise_api import router as enterprise_router
+from .ai_processor import router as ai_router
+from .specialized_api import router as specialized_router
 
 # Configure logging
 logging.basicConfig(
@@ -102,10 +105,11 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    from datetime import datetime, timezone
     return {
         "status": "healthy",
         "version": settings.version,
-        "timestamp": "2025-01-01T00:00:00Z"  # Would use datetime.utcnow() in real implementation
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -133,6 +137,24 @@ app.include_router(
     api_router,
     prefix="/api",
     tags=["Files (Legacy)"]
+)
+
+app.include_router(
+    enterprise_router,
+    prefix="/api/v1/enterprise",
+    tags=["Enterprise Features"]
+)
+
+app.include_router(
+    ai_router,
+    prefix="/api/v1/ai",
+    tags=["AI Processing"]
+)
+
+app.include_router(
+    specialized_router,
+    prefix="/api/v1/specialized",
+    tags=["Specialized Files"]
 )
 
 

@@ -101,9 +101,49 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  file_processor:
+    build:
+      context: ./file_processor
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production}
+      DATABASE_URL: sqlite:///./app.db
+      UPLOAD_DIR: /app/uploads
+      PROCESSED_DIR: /app/processed
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEBUG: ${DEBUG:-false}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5000"
+    volumes:
+      - file_processor_uploads:/app/uploads
+      - file_processor_processed:/app/processed
+      - file_processor_db:/app/app.db
+    ports:
+      - 8002:8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   backend_uploads:
   backend_sorted:
   frontend_uploads:
   multimedia_uploads:
   multimedia_db:
+  file_processor_uploads:
+  file_processor_processed:
+  file_processor_db:
+
+networks:
+  default:
+    name: sorter_network
