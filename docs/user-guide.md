@@ -1,6 +1,6 @@
 # User Guide
 
-This guide covers how to use the Sorter file processing system for end users.
+This guide covers how to use the FileForge file processing system for end users.
 
 ## Getting Started
 
@@ -548,7 +548,7 @@ response = requests.get(
 
 - **Documentation**: See all guides in `/docs`
 - **FAQ**: Check common questions
-- **Support Email**: support@sorter-app.com
+- **Support Email**: support@fileforge-app.com
 - **Live Chat**: Available during business hours
 
 ### Reporting Issues

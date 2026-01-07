@@ -5,30 +5,30 @@ This guide covers setting up a development environment, contributing to the proj
 ## Project Structure
 
 ```
-Sorter/
-├── backend/              # Backend FastAPI service
+FileForge/
+├── forge_backend/           # Backend FastAPI service
 │   ├── __init__.py
-│   ├── main.py          # Application entry point
+│   ├── backend.py           # Application entry point
 │   ├── requirements.txt
 │   └── Dockerfile
-├── frontend/            # Flask frontend service
+├── forge_frontend/          # Flask frontend service
 │   ├── __init__.py
-│   ├── frontend.py      # Application entry point
-│   ├── templates/       # HTML templates
+│   ├── frontend.py          # Application entry point
+│   ├── templates/           # HTML templates
 │   ├── requirements.txt
 │   └── Dockerfile
-├── file_processor/      # Core file processing service
+├── file_forge/              # Core file processing service
 │   ├── __init__.py
-│   ├── api.py           # API endpoints
-│   ├── auth.py          # Authentication
-│   ├── config.py        # Configuration
-│   ├── database.py      # Database models
-│   ├── processors.py    # File processors
-│   ├── smart_sorter.py  # Sorting logic
+│   ├── api.py               # API endpoints
+│   ├── auth.py              # Authentication
+│   ├── config.py            # Configuration
+│   ├── database.py          # Database models
+│   ├── processors.py        # File processors
+│   ├── smart_sorter.py      # Sorting logic
 │   ├── workflow_engine.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── multimedia_processor/ # Multimedia processing service
+├── multimedia_forge/        # Multimedia processing service
 │   ├── __init__.py
 │   ├── api.py
 │   ├── auth.py
@@ -36,19 +36,19 @@ Sorter/
 │   ├── processors.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── docs/                # Documentation
+├── docs/                    # Documentation
 │   ├── developer-guide.md
 │   ├── security-guide.md
 │   ├── user-guide.md
 │   ├── file-format-support.md
 │   └── processing-pipeline.md
-├── k8s/                 # Kubernetes manifests
+├── k8s/                     # Kubernetes manifests
 │   ├── deployment.yaml
 │   └── ...
-├── uploads/             # Uploaded files (gitignored)
-├── .env.example         # Environment template
-├── requirements.txt     # Root dependencies
-├── docker-compose.yml   # Docker Compose config
+├── uploads/                 # Uploaded files (gitignored)
+├── .env.example             # Environment template
+├── requirements.txt         # Root dependencies
+├── docker-compose.yml       # Docker Compose config
 └── README.md
 ```
 
@@ -66,8 +66,8 @@ Sorter/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/sorter.git
-   cd sorter
+   git clone https://github.com/your-org/fileforge.git
+   cd fileforge
    ```
 
 2. **Create virtual environment**
@@ -81,10 +81,10 @@ Sorter/
 3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
-   pip install -r backend/requirements.txt
-   pip install -r frontend/requirements.txt
-   pip install -r file_processor/requirements.txt
-   pip install -r multimedia_processor/requirements.txt
+   pip install -r forge_backend/requirements.txt
+   pip install -r forge_frontend/requirements.txt
+   pip install -r file_forge/requirements.txt
+   pip install -r multimedia_forge/requirements.txt
    ```
 
 4. **Configure environment**
@@ -95,16 +95,16 @@ Sorter/
 
 5. **Initialize database**
    ```bash
-   python -m file_processor.database
+   python -m file_forge.database
    ```
 
 6. **Run development servers**
    ```bash
    # Terminal 1: Backend
-   uvicorn file_processor.main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn file_forge.main:app --reload --host 0.0.0.0 --port 8000
    
    # Terminal 2: Frontend
-   python frontend/frontend.py
+   python forge_frontend/frontend.py
    ```
 
 ### Docker Development
@@ -117,7 +117,7 @@ docker-compose up --build
 docker-compose logs -f
 
 # Scale services
-docker-compose up -d --scale file-processor=2
+docker-compose up -d --scale file-forge=2
 ```
 
 ## API Development
@@ -126,7 +126,7 @@ docker-compose up -d --scale file-processor=2
 
 1. Create endpoint in appropriate service:
    ```python
-   # file_processor/api.py
+   # file_forge/api.py
    from fastapi import APIRouter
    
    router = APIRouter()
@@ -138,18 +138,18 @@ docker-compose up -d --scale file-processor=2
 
 2. Register router in main app:
    ```python
-   # file_processor/main.py
-   from file_processor.api import router as api_router
+   # file_forge/main.py
+   from file_forge.api import router as api_router
    
    app.include_router(api_router, prefix="/api/v1")
    ```
 
 ### File Processors
 
-Create new processor in [`file_processor/processors.py`](file_processor/processors.py):
+Create new processor in [`file_forge/processors.py`](file_forge/processors.py):
 
 ```python
-from file_processors import BaseProcessor
+from file_forge.processors import BaseProcessor
 
 class CustomProcessor(BaseProcessor):
     EXTENSIONS = ['.custom']
@@ -165,11 +165,11 @@ class CustomProcessor(BaseProcessor):
 
 ### Database Models
 
-Add models in [`file_processor/models.py`](file_processor/models.py):
+Add models in [`file_forge/models.py`](file_forge/models.py):
 
 ```python
 from sqlalchemy import Column, Integer, String, DateTime
-from file_processor.database import Base
+from file_forge.database import Base
 
 class CustomModel(Base):
     __tablename__ = "custom_table"
@@ -188,24 +188,24 @@ class CustomModel(Base):
 pytest
 
 # Run with coverage
-pytest --cov=file_processor --cov-report=html
+pytest --cov=file_forge --cov-report=html
 
 # Run specific test file
-pytest file_processor/tests/test_api.py -v
+pytest file_forge/tests/test_api.py -v
 
 # Run specific test
-pytest file_processor/tests/test_api.py::test_upload -v
+pytest file_forge/tests/test_api.py::test_upload -v
 ```
 
 ### Writing Tests
 
 ```python
-# file_processor/tests/test_example.py
+# file_forge/tests/test_example.py
 import pytest
 from fastapi.testclient import TestClient
 
 def test_example_endpoint():
-    from file_processor.main import app
+    from file_forge.main import app
     client = TestClient(app)
     
     response = client.get("/api/v1/example")
@@ -277,7 +277,7 @@ This runs:
 docker-compose build
 
 # Build specific service
-docker build -t sorter-backend ./backend
+docker build -t fileforge/forge_backend ./forge_backend
 
 # Build with no cache
 docker-compose build --no-cache
@@ -287,10 +287,10 @@ docker-compose build --no-cache
 
 ```bash
 # Run shell in container
-docker-compose exec file-processor /bin/bash
+docker-compose exec file-forge /bin/bash
 
 # View logs
-docker-compose logs -f file-processor
+docker-compose logs -f file-forge
 
 # Check container resources
 docker stats
@@ -335,8 +335,8 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend
-      - frontend
+      - forge_backend
+      - forge_frontend
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
       interval: 30s
@@ -344,14 +344,14 @@ services:
       retries: 3
 
   # Backend API Service
-  backend:
+  forge_backend:
     build:
-      context: ./backend
+      context: ./forge_backend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       # Database (use external PostgreSQL in production)
-      DATABASE_URL: postgresql://user:password@db:5432/sorter
+      DATABASE_URL: postgresql://user:password@db:5432/fileforge
       
       # Security keys (use secrets in production)
       SECRET_KEY: ${SECRET_KEY}
@@ -401,35 +401,35 @@ services:
         max-file: "5"
 
   # Frontend Service
-  frontend:
+  forge_frontend:
     build:
-      context: ./frontend
+      context: ./forge_frontend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       DEBUG: "false"
       HOST: 0.0.0.0
       PORT: "5000"
-      BACKEND_URL: http://backend:8000
-      BACKEND_DOWNLOAD_URL: http://backend:8000/download
+      BACKEND_URL: http://forge_backend:8000
+      BACKEND_DOWNLOAD_URL: http://forge_backend:8000/download
     ports:
       - "5000:5000"
     depends_on:
-      - backend
+      - forge_backend
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:5000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # File Processor Worker
-  file-processor:
+  # File Forge Worker
+  file-forge:
     build:
-      context: ./file_processor
+      context: ./file_forge
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/sorter
+      DATABASE_URL: postgresql://user:password@db:5432/fileforge
       REDIS_URL: redis://redis:6379/0
       MAX_WORKERS: 4
     volumes:
@@ -467,15 +467,15 @@ services:
     image: postgres:15
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sorter
-      POSTGRES_USER: sorter
+      POSTGRES_DB: fileforge
+      POSTGRES_USER: fileforge
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sorter -d sorter"]
+      test: ["CMD-SHELL", "pg_isready -U fileforge -d fileforge"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -571,11 +571,11 @@ networks:
 #### Docker Compose Scaling
 
 ```bash
-# Scale file processor workers
-docker-compose up -d --scale file-processor=4
+# Scale file forge workers
+docker-compose up -d --scale file-forge=4
 
 # Scale backend instances
-docker-compose up -d --scale backend=3
+docker-compose up -d --scale forge_backend=3
 ```
 
 #### Kubernetes Scaling
@@ -587,7 +587,7 @@ The project includes Kubernetes manifests in [`k8s/deployment.yaml`](k8s/deploym
 kubectl apply -f k8s/
 
 # Manual scaling
-kubectl scale deployment sorter-backend --replicas=5
+kubectl scale deployment fileforge-backend --replicas=5
 
 # View scaling status
 kubectl get hpa
@@ -600,12 +600,12 @@ kubectl get hpa
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: sorter-backend-hpa
+  name: fileforge-backend-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: sorter-backend
+    name: fileforge-backend
   minReplicas: 3
   maxReplicas: 10
   metrics:
@@ -628,7 +628,7 @@ spec:
 | Component | Min Replicas | Max Replicas | Scaling Trigger |
 |-----------|-------------|--------------|-----------------|
 | Backend API | 2 | 10 | CPU > 70% or RPS > 500 |
-| File Processor | 2 | 5 | Queue length > 100 |
+| File Forge | 2 | 5 | Queue length > 100 |
 | Frontend | 1 | 3 | CPU > 80% |
 | Redis | 1 | 1 (cluster) | N/A |
 | PostgreSQL | 1 | Read replicas | CPU > 80% |
@@ -647,7 +647,7 @@ spec:
 # ===========================================
 # DATABASE (Use external PostgreSQL)
 # ===========================================
-DATABASE_URL=postgresql://sorter:secure_password@db-host:5432/sorter
+DATABASE_URL=postgresql://fileforge:secure_password@db-host:5432/fileforge
 
 # ===========================================
 # SECURITY (Generate secure keys!)
@@ -747,7 +747,7 @@ set -e
 
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR=/backups
-S3_BUCKET=s3://sorter-backups
+S3_BUCKET=s3://fileforge-backups
 
 # Database backup
 echo "Backing up database..."
@@ -777,8 +777,8 @@ echo "Backup complete: $DATE"
 BACKUP_DATE=$1  # Format: 20240115_120000
 
 # Download from S3
-aws s3 cp s3://sorter-backups/database/db_backup_$BACKUP_DATE.sql.gz /tmp/
-aws s3 cp s3://sorter-backups/uploads/uploads_backup_$BACKUP_DATE.tar.gz /tmp/
+aws s3 cp s3://fileforge-backups/database/db_backup_$BACKUP_DATE.sql.gz /tmp/
+aws s3 cp s3://fileforge-backups/uploads/uploads_backup_$BACKUP_DATE.tar.gz /tmp/
 
 # Stop services
 docker-compose down
@@ -801,7 +801,7 @@ echo "Restore complete"
 ```yaml
 # docker-compose.ha.yml
 services:
-  backend:
+  forge_backend:
     deploy:
       mode: replicated
       replicas: 3

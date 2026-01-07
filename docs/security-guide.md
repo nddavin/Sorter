@@ -1,6 +1,6 @@
 # Security Guide
 
-This document covers security features, best practices, configuration, and enterprise compliance for the Sorter application.
+This document covers security features, best practices, configuration, and enterprise compliance for the FileForge application.
 
 ## 🔐 Authentication
 
@@ -297,7 +297,7 @@ CLAMAV_PORT=3310
 
 ### File Storage Security
 
-- Store uploads outside web root (`/var/sorter/uploads`)
+- Store uploads outside web root (`/var/fileforge/uploads`)
 - Use separate partition with limited permissions (chmod 750)
 - Implement file quarantine for suspicious files
 - Regular cleanup of temporary files
@@ -315,7 +315,7 @@ CLAMAV_PORT=3310
 | Right to Erasure | User-initiated data deletion | ✅ |
 | Right to Portability | Export data in machine-readable format | ✅ |
 | Consent Management | Document and manage user consent | ✅ |
-| Data Protection Officer | Contact: dpo@sorter-app.com | ✅ |
+| Data Protection Officer | Contact: dpo@fileforge-app.com | ✅ |
 | Privacy Policy | Available at /privacy | ✅ |
 | Data Processing Agreement | Available upon request | ✅ |
 | Cross-border Transfers | Standard Contractual Clauses | ✅ |
@@ -407,9 +407,9 @@ Configure alerts for:
 
 ### Reporting Security Issues
 
-- **Email**: security@sorter-app.com
+- **Email**: security@fileforge-app.com
 - **GitHub**: Report through security advisory
-- **PGP Key**: Available at security@sorter-app.com/pgp.txt
+- **PGP Key**: Available at security@fileforge-app.com/pgp.txt
 
 ### Response Procedure
 
@@ -444,10 +444,10 @@ pip install safety
 safety check -r requirements.txt
 
 # Static analysis
-bandit -r file_processor/
+bandit -r file_forge/
 
 # OWASP dependency check
-dependency-check --project "Sorter" --scan .
+dependency-check --project "FileForge" --scan .
 ```
 
 ### Penetration Testing
@@ -475,7 +475,7 @@ When conducting penetration tests:
 ### GDPR-Compliant DPA Template
 
 **Data Controller**: [Customer Organization]
-**Data Processor**: Sorter Application
+**Data Processor**: FileForge Application
 
 #### 1. Subject Matter and Duration
 
@@ -594,7 +594,7 @@ def redact_phi(file_content: str) -> str:
 
 | Contact | Purpose | Response Time |
 |---------|---------|---------------|
-| security@sorter-app.com | Security issues | 24 hours |
-| dpo@sorter-app.com | Privacy/DPO | 48 hours |
-| support@sorter-app.com | General support | 24 hours |
-| emergency@sorter-app.com | Critical incidents | 1 hour |
+| security@fileforge-app.com | Security issues | 24 hours |
+| dpo@fileforge-app.com | Privacy/DPO | 48 hours |
+| support@fileforge-app.com | General support | 24 hours |
+| emergency@fileforge-app.com | Critical incidents | 1 hour |
