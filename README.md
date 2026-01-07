@@ -99,47 +99,50 @@ A production-ready, enterprise-grade file processing system with advanced securi
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd sorter
-   ```
+    ```bash
+    git clone <repository-url>
+    cd fileforge
+    ```
 
 2. **Environment Setup**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+    ```bash
+    cp .env.example .env
+    # Edit .env with your configuration
+    ```
 
 3. **Docker Deployment**
-   ```bash
-   docker-compose up -d
-   ```
+    ```bash
+    docker-compose up -d
+    ```
 
 4. **Access the Application**
-   - Frontend: http://localhost:5000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
+    - Frontend: http://localhost:3000
+    - Backend API: http://localhost:8000
+    - API Documentation: http://localhost:8000/docs
 
 ### Manual Installation
 
-1. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. **Backend Setup**
+    ```bash
+    cd backend
+    pip install -r requirements.txt
+    # Database setup (auto-creates tables on startup)
+    ```
 
-2. **Database Setup**
-   ```bash
-   python -m file_processor.database
-   ```
+2. **Frontend Setup**
+    ```bash
+    cd frontend
+    npm install
+    ```
 
 3. **Run the Application**
-   ```bash
-   # Backend
-   uvicorn file_processor.main:app --host 0.0.0.0 --port 8000
+    ```bash
+    # Backend (from backend/ directory)
+    uvicorn file_processor.main:app --host 0.0.0.0 --port 8000 --reload
 
-   # Frontend
-   python frontend/frontend.py
-   ```
+    # Frontend (from frontend/ directory)
+    npm run dev
+    ```
 
 ---
 
@@ -215,61 +218,68 @@ SMTP_PORT=587
 #### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/login` | User login |
-| POST | `/api/auth/register` | User registration |
+| POST | `/api/v1/auth/login` | User login |
+| POST | `/api/v1/auth/register` | User registration |
 | POST | `/api/auth/refresh` | Token refresh |
 | GET | `/api/auth/me` | Current user info |
 
 #### File Management
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/upload` | Upload files |
-| GET | `/api/files` | List files |
-| GET | `/api/files/{id}` | Get file details |
-| GET | `/api/download/{id}` | Download files |
-| DELETE | `/api/files/{id}` | Delete files |
+| POST | `/api/v1/files/upload` | Upload files |
+| GET | `/api/v1/files` | List files |
+| GET | `/api/v1/files/{id}` | Get file details |
+| GET | `/api/v1/files/download/{id}` | Download files |
+| DELETE | `/api/v1/files/{id}` | Delete files |
 
 #### Sorting & Rules
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/sorting-rules` | Create sorting rules |
-| GET | `/api/sorting-rules` | List sorting rules |
-| POST | `/api/sort` | Apply sorting |
+| POST | `/api/v1/sorting-rules` | Create sorting rules |
+| GET | `/api/v1/sorting-rules` | List sorting rules |
+| POST | `/api/v1/sort` | Apply sorting |
 
 #### AI Features
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/ai/classify` | AI document classification |
-| POST | `/api/ai/ocr` | OCR text extraction |
-| POST | `/api/ai/auto-tag` | Auto-tagging |
+| POST | `/api/v1/ai/classify` | AI document classification |
+| POST | `/api/v1/ai/ocr` | OCR text extraction |
+| POST | `/api/v1/ai/auto-tag` | Auto-tagging |
 
 #### Workflows
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/workflows` | Create workflow |
-| GET | `/api/workflows` | List workflows |
-| POST | `/api/workflows/{id}/execute` | Execute workflow |
+| POST | `/api/v1/workflows` | Create workflow |
+| GET | `/api/v1/workflows` | List workflows |
+| POST | `/api/v1/workflows/{id}/execute` | Execute workflow |
 
 ### API Examples
 
 ```python
 import requests
 
+# Login first
+login_response = requests.post('http://localhost:8000/api/v1/auth/login', json={
+    'username': 'your_username',
+    'password': 'your_password'
+})
+token = login_response.json()['access_token']
+
 # Upload a file
 with open('document.pdf', 'rb') as f:
     response = requests.post(
-        'http://localhost:8000/api/upload',
+        'http://localhost:8000/api/v1/files/upload',
         files={'file': f},
-        headers={'Authorization': 'Bearer YOUR_TOKEN'}
+        headers={'Authorization': f'Bearer {token}'}
     )
     print(response.json())
 
 # AI Classification
 with open('document.pdf', 'rb') as f:
     response = requests.post(
-        'http://localhost:8000/api/ai/classify',
+        'http://localhost:8000/api/v1/ai/classify',
         files={'file': f},
-        headers={'Authorization': 'Bearer YOUR_TOKEN'}
+        headers={'Authorization': f'Bearer {token}'}
     )
     print(response.json())
 ```
@@ -288,7 +298,7 @@ docker-compose up -d
 docker-compose -f docker-compose.prod.yml up -d
 
 # Scale services
-docker-compose up -d --scale file-processor=4
+docker-compose up -d --scale worker=4
 ```
 
 ### Kubernetes
@@ -298,7 +308,7 @@ docker-compose up -d --scale file-processor=4
 kubectl apply -f k8s/
 
 # Scale backend
-kubectl scale deployment sorter-backend --replicas=5
+kubectl scale deployment fileforge-api --replicas=5
 
 # View HPA status
 kubectl get hpa
@@ -317,8 +327,8 @@ kubectl get hpa
 
 | Component | Min | Max | Scaling Trigger |
 |-----------|-----|-----|-----------------|
-| Backend API | 2 | 10 | CPU > 70% or RPS > 500 |
-| File Processor | 2 | 5 | Queue length > 100 |
+| API Service | 2 | 10 | CPU > 70% or RPS > 500 |
+| Worker Service | 2 | 5 | Queue length > 100 |
 | Frontend | 1 | 3 | CPU > 80% |
 | Redis | 1 | Cluster | Memory > 80% |
 | PostgreSQL | 1 | Read replicas | CPU > 80% |
@@ -329,25 +339,35 @@ kubectl get hpa
 
 ### Setup
 ```bash
-# Create virtual environment
+# Backend setup
+cd backend
 python -m venv venv
 source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-pip install -r file_processor/requirements.txt
 
-# Run development server
+# Frontend setup
+cd ../frontend
+npm install
+
+# Run development servers
+# Backend (from backend/ directory)
 uvicorn file_processor.main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend (from frontend/ directory)
+npm run dev
 ```
 
 ### Testing
 ```bash
-# Run all tests
-pytest
+# Run all tests (from root directory)
+pytest backend/tests/
 
 # Run with coverage
-pytest --cov=file_processor --cov-report=html
+pytest backend/tests/ --cov=backend/file_processor --cov-report=html
+
+# Run specific test categories
+pytest backend/tests/test_security/ -v
+pytest backend/tests/test_api/ --disable-warnings
 ```
 
 ### Contributing
